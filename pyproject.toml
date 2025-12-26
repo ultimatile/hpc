@@ -24,5 +24,9 @@ packages = ["src/hpc"]
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.0.0",
+    "pyright>=1.1.0",
     "pytest>=8.0.0",
+    "python-semantic-release>=9.0.0",
+    "ruff>=0.12.0",
 ]
