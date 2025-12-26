@@ -1,0 +1,17 @@
+[project]
+name = "hpc"
+version = "0.0.1"
+description = "an automation CLI tool for HPC workflow."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+  { name = "ultimatile", email = "ultimatile@users.noreply.github.com" },
+]
+dependencies = []
+
+[project.scripts]
+hpc = "hpc:main"
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
