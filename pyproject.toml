@@ -21,3 +21,8 @@ hpc = "hpc.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hpc"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
