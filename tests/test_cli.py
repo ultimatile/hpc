@@ -15,6 +15,16 @@ def test_init_command_exists(cli_runner):
     assert result.exit_code == 0
 
 
+def test_init_creates_config_file(cli_runner, temp_dir, monkeypatch):
+    monkeypatch.chdir(temp_dir)
+    result = cli_runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+    config_path = temp_dir / "hpc.toml"
+    assert config_path.exists()
+    content = config_path.read_text()
+    assert "[cluster]" in content
+
+
 def test_sync_command_exists(cli_runner):
     result = cli_runner.invoke(app, ["sync", "--help"])
     assert result.exit_code == 0
