@@ -30,6 +30,13 @@ def test_sync_command_exists(cli_runner):
     assert result.exit_code == 0
 
 
+def test_sync_requires_config(cli_runner, temp_dir, monkeypatch):
+    monkeypatch.chdir(temp_dir)
+    result = cli_runner.invoke(app, ["sync"])
+    assert result.exit_code != 0
+    assert "Config file not found" in result.stdout or "hpc.toml" in result.stdout
+
+
 def test_submit_command_exists(cli_runner):
     result = cli_runner.invoke(app, ["submit", "--help"])
     assert result.exit_code == 0
