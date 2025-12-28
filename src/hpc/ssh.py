@@ -1,0 +1,87 @@
+"""SSH connection management"""
+
+import os
+import subprocess
+from dataclasses import dataclass
+from typing import Optional
+
+
+class SSHError(Exception):
+    """SSH operation error"""
+
+    pass
+
+
+@dataclass
+class CommandResult:
+    """Result of SSH command execution"""
+
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+class SSHManager:
+    """SSH connection and command execution manager"""
+
+    def __init__(
+        self,
+        host: str,
+        user: Optional[str] = None,
+        use_control_master: bool = False,
+    ):
+        self.host = host
+        self.user = user
+        self.use_control_master = use_control_master
+        self._control_path = f"/tmp/hpc_ssh_{host}_{os.getpid()}"
+
+    def _build_ssh_command(self, cmd: str) -> list[str]:
+        """Build SSH command with options"""
+        ssh_cmd = ["ssh", "-q"]
+
+        if self.use_control_master:
+            ssh_cmd.extend(
+                [
+                    "-o",
+                    "ControlMaster=auto",
+                    "-o",
+                    f"ControlPath={self._control_path}",
+                    "-o",
+                    "ControlPersist=10m",
+                ]
+            )
+
+        target = f"{self.user}@{self.host}" if self.user else self.host
+        ssh_cmd.append(target)
+        ssh_cmd.append(cmd)
+
+        return ssh_cmd
+
+    def test_connection(self) -> bool:
+        """Test SSH connection"""
+        try:
+            result = subprocess.run(
+                self._build_ssh_command("exit 0"),
+                capture_output=True,
+                text=True,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def run_command(self, cmd: str) -> CommandResult:
+        """Execute command on remote host"""
+        result = subprocess.run(
+            self._build_ssh_command(cmd),
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            raise SSHError(f"SSH command failed: {result.stderr}")
+
+        return CommandResult(
+            returncode=result.returncode,
+            stdout=result.stdout,
+            stderr=result.stderr,
+        )
