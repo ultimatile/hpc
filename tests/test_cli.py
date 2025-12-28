@@ -42,6 +42,12 @@ def test_submit_command_exists(cli_runner):
     assert result.exit_code == 0
 
 
+def test_submit_requires_config(cli_runner, temp_dir, monkeypatch):
+    monkeypatch.chdir(temp_dir)
+    result = cli_runner.invoke(app, ["submit", "python train.py"])
+    assert result.exit_code != 0
+
+
 def test_status_command_exists(cli_runner):
     result = cli_runner.invoke(app, ["status", "--help"])
     assert result.exit_code == 0
