@@ -116,3 +116,40 @@ class JobManager:
             "TIMEOUT": JobStatus.TIMEOUT,
         }
         return status_map.get(status_str, JobStatus.FAILED)
+
+    def wait_for_job(
+        self,
+        job_id: str,
+        interval: float = 60,
+        adaptive: bool = False,
+        max_interval: float = 86400,
+        growth_factor: float = 2.0,
+    ) -> JobStatus:
+        """Wait for job to complete, polling at interval
+        
+        Args:
+            job_id: Slurm job ID
+            interval: Initial polling interval in seconds
+            adaptive: If True, increase interval geometrically
+            max_interval: Maximum polling interval (default 1 hour)
+            growth_factor: Multiplier for adaptive interval (default 2x)
+        """
+        import time
+
+        current_interval = interval
+        terminal_states = {
+            JobStatus.COMPLETED,
+            JobStatus.FAILED,
+            JobStatus.CANCELLED,
+            JobStatus.TIMEOUT,
+        }
+
+        while True:
+            status = self.get_job_status(job_id)
+            if status in terminal_states:
+                return status
+
+            time.sleep(current_interval)
+
+            if adaptive:
+                current_interval = min(current_interval * growth_factor, max_interval)

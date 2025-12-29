@@ -49,7 +49,10 @@ def sync(apply: bool = False):
 
 
 @app.command()
-def submit(cmd: str):
+def submit(
+    cmd: str,
+    wait: bool = typer.Option(False, "--wait", "-w", help="Wait for job completion"),
+):
     """Submit a job to Slurm"""
     config_path = Path("hpc.toml")
     if not config_path.exists():
@@ -83,6 +86,13 @@ def submit(cmd: str):
     if git_commit:
         print(f"Git commit: {git_commit}")
 
+    if wait:
+        print("Waiting for job completion...")
+        status = job_manager.wait_for_job(job_id, adaptive=True)
+        run.status = status.value.lower()
+        run_manager.save_run_meta(run)
+        print(f"Job finished: {status.value}")
+
 
 @app.command()
 def status(job_id: str = typer.Argument(None)):
@@ -106,8 +116,8 @@ def status(job_id: str = typer.Argument(None)):
     print(f"Job {job_id}: {job_status.value}")
 
 
-@app.command()
-def list():
+@app.command(name="list")
+def list_runs():
     """List all runs"""
     config_path = Path("hpc.toml")
     if not config_path.exists():
@@ -128,3 +138,37 @@ def list():
     for run in runs:
         job_info = f" (job: {run.job_id})" if run.job_id else ""
         print(f"{run.run_id}: {run.status}{job_info} - {run.cmd}")
+
+
+@app.command()
+def wait(run_id: str):
+    """Wait for a run to complete"""
+    config_path = Path("hpc.toml")
+    if not config_path.exists():
+        print(f"Config file not found: {config_path}")
+        raise typer.Exit(1)
+
+    manager = ConfigManager()
+    config = manager.load_config(config_path)
+
+    runs_dir = Path(".hpc/runs")
+    run_manager = RunManager(config=config, runs_dir=runs_dir)
+
+    try:
+        run = run_manager.load_run_meta(run_id)
+    except FileNotFoundError:
+        print(f"Run not found: {run_id}")
+        raise typer.Exit(1)
+
+    if not run.job_id:
+        print(f"Run {run_id} has no job ID")
+        raise typer.Exit(1)
+
+    ssh = SSHManager(host=config.cluster.host)
+    job_manager = JobManager(ssh_manager=ssh, config=config)
+
+    print(f"Waiting for job {run.job_id}...")
+    status = job_manager.wait_for_job(run.job_id, adaptive=True)
+    run.status = status.value.lower()
+    run_manager.save_run_meta(run)
+    print(f"Job finished: {status.value}")

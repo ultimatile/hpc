@@ -64,6 +64,14 @@ Checks the status of a submitted job.
 hpc status 12345678
 ```
 
+### `hpc wait`
+
+Waits for a run to complete.
+
+```bash
+hpc wait <run_id>
+```
+
 ## Configuration
 
 Edit `hpc.toml`:

@@ -51,9 +51,13 @@ class SyncManager:
     def has_uncommitted_changes(self, path: Path) -> bool:
         """Check if there are uncommitted changes"""
         try:
+            git_dir = path / ".git"
+            if not git_dir.exists():
+                return False
+
             result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                cwd=path,
+                ["git", "--git-dir", str(git_dir), "--work-tree", str(path),
+                 "status", "--porcelain"],
                 capture_output=True,
                 text=True,
             )
