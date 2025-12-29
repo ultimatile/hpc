@@ -66,7 +66,7 @@ def submit(cmd: str):
 
 
 @app.command()
-def status(job_id: str = None):
+def status(job_id: str = typer.Argument(None)):
     """Check job status"""
     config_path = Path("hpc.toml")
     if not config_path.exists():
