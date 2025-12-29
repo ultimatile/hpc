@@ -9,6 +9,7 @@ from .config import ConfigManager
 from .ssh import SSHManager
 from .sync import SyncManager
 from .job import JobManager
+from .run import RunManager
 
 
 @app.command()
@@ -58,11 +59,20 @@ def submit(cmd: str):
     manager = ConfigManager()
     config = manager.load_config(config_path)
 
+    runs_dir = Path(".hpc/runs")
+    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    run = run_manager.create_run(cmd)
+
     ssh = SSHManager(host=config.cluster.host)
     job_manager = JobManager(ssh_manager=ssh, config=config)
 
-    job_id = job_manager.submit_job(cmd)
-    print(f"Submitted job: {job_id}")
+    job_id = job_manager.submit_run(run)
+    run.job_id = job_id
+    run.status = "submitted"
+    run_manager.save_run_meta(run)
+
+    print(f"Submitted run: {run.run_id}")
+    print(f"Job ID: {job_id}")
 
 
 @app.command()
@@ -85,3 +95,27 @@ def status(job_id: str = typer.Argument(None)):
 
     job_status = job_manager.get_job_status(job_id)
     print(f"Job {job_id}: {job_status.value}")
+
+
+@app.command()
+def list():
+    """List all runs"""
+    config_path = Path("hpc.toml")
+    if not config_path.exists():
+        print(f"Config file not found: {config_path}")
+        raise typer.Exit(1)
+
+    manager = ConfigManager()
+    config = manager.load_config(config_path)
+
+    runs_dir = Path(".hpc/runs")
+    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    runs = run_manager.list_runs()
+
+    if not runs:
+        print("No runs found.")
+        return
+
+    for run in runs:
+        job_info = f" (job: {run.job_id})" if run.job_id else ""
+        print(f"{run.run_id}: {run.status}{job_info} - {run.cmd}")

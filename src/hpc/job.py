@@ -6,6 +6,7 @@ from jinja2 import Template
 
 from .config import HpcConfig
 from .ssh import SSHManager
+from .run import RunConfig
 
 
 class JobStatus(Enum):
@@ -20,11 +21,24 @@ class JobStatus(Enum):
 
 
 SLURM_TEMPLATE = """#!/bin/bash
+#SBATCH --job-name={{ run_id }}
 #SBATCH --partition={{ partition }}
 #SBATCH --time={{ time }}
 #SBATCH --mem={{ mem }}
 {% if gpus %}#SBATCH --gpus={{ gpus }}
 {% endif %}
+#SBATCH --output={{ workdir }}/.hpc/runs/{{ run_id }}/slurm-%j.out
+#SBATCH --error={{ workdir }}/.hpc/runs/{{ run_id }}/slurm-%j.err
+
+cd {{ workdir }}
+
+{% for module in modules %}
+module load {{ module }}
+{% endfor %}
+{% if conda_env %}
+conda activate {{ conda_env }}
+{% endif %}
+
 {{ cmd }}
 """
 
@@ -36,22 +50,54 @@ class JobManager:
         self.ssh_manager = ssh_manager
         self.config = config
 
-    def _render_slurm_script(self, cmd: str) -> str:
+    def _render_slurm_script(self, run: RunConfig) -> str:
         """Render Slurm job script from template"""
         template = Template(SLURM_TEMPLATE)
         return template.render(
+            run_id=run.run_id,
             partition=self.config.slurm.partition,
             time=self.config.slurm.time,
             mem=self.config.slurm.mem,
             gpus=self.config.slurm.gpus,
-            cmd=cmd,
+            workdir=self.config.cluster.workdir,
+            modules=self.config.env.modules,
+            conda_env=self.config.env.conda_env,
+            cmd=run.cmd,
         )
 
+    def submit_run(self, run: RunConfig) -> str:
+        """Submit run to Slurm and return job ID"""
+        script = self._render_slurm_script(run)
+
+        # Create run directory on remote
+        run_dir = f"{self.config.cluster.workdir}/.hpc/runs/{run.run_id}"
+        self.ssh_manager.run_command(f"mkdir -p {run_dir}")
+
+        # Write script to remote
+        script_path = f"{run_dir}/job.sh"
+        escaped_script = script.replace("'", "'\\''")
+        self.ssh_manager.run_command(f"echo '{escaped_script}' > {script_path}")
+
+        # Submit with sbatch --parsable
+        result = self.ssh_manager.run_command(f"sbatch --parsable {script_path}")
+        return result.stdout.strip()
+
     def submit_job(self, cmd: str) -> str:
-        """Submit job to Slurm and return job ID"""
-        script = self._render_slurm_script(cmd)
-        # Write script and submit with sbatch --parsable
-        submit_cmd = f"echo '{script}' | sbatch --parsable"
+        """Legacy: Submit job without run tracking"""
+        template = Template(SLURM_TEMPLATE)
+        script = template.render(
+            run_id="job",
+            partition=self.config.slurm.partition,
+            time=self.config.slurm.time,
+            mem=self.config.slurm.mem,
+            gpus=self.config.slurm.gpus,
+            workdir=self.config.cluster.workdir,
+            modules=self.config.env.modules,
+            conda_env=self.config.env.conda_env,
+            cmd=cmd,
+        )
+        escaped_script = script.replace("'", "'\\''")
+        submit_cmd = f"echo '{escaped_script}' | sbatch --parsable"
         result = self.ssh_manager.run_command(submit_cmd)
         return result.stdout.strip()
 
