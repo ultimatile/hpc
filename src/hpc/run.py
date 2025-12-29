@@ -43,7 +43,7 @@ class RunManager:
         short_hash = uuid.uuid4().hex[:6]
         return f"{timestamp}_{short_hash}"
 
-    def create_run(self, cmd: str) -> RunConfig:
+    def create_run(self, cmd: str, git_commit: Optional[str] = None) -> RunConfig:
         """Create a new run with generated ID"""
         run_id = self._generate_run_id()
         run_dir = self.runs_dir / run_id
@@ -53,6 +53,7 @@ class RunManager:
             run_id=run_id,
             cmd=cmd,
             status="pending",
+            git_commit=git_commit,
             created_at=datetime.now().isoformat(),
             slurm_time=self.config.slurm.time,
             slurm_mem=self.config.slurm.mem,

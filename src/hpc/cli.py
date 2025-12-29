@@ -59,11 +59,18 @@ def submit(cmd: str):
     manager = ConfigManager()
     config = manager.load_config(config_path)
 
+    # Get git commit if in a git repo
+    ssh = SSHManager(host=config.cluster.host)
+    sync_manager = SyncManager(ssh_manager=ssh, config=config)
+    git_commit = sync_manager.get_git_commit(Path.cwd(), short=True)
+
+    if sync_manager.has_uncommitted_changes(Path.cwd()):
+        print("Warning: uncommitted changes detected")
+
     runs_dir = Path(".hpc/runs")
     run_manager = RunManager(config=config, runs_dir=runs_dir)
-    run = run_manager.create_run(cmd)
+    run = run_manager.create_run(cmd, git_commit=git_commit)
 
-    ssh = SSHManager(host=config.cluster.host)
     job_manager = JobManager(ssh_manager=ssh, config=config)
 
     job_id = job_manager.submit_run(run)
@@ -73,6 +80,8 @@ def submit(cmd: str):
 
     print(f"Submitted run: {run.run_id}")
     print(f"Job ID: {job_id}")
+    if git_commit:
+        print(f"Git commit: {git_commit}")
 
 
 @app.command()

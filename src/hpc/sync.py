@@ -3,6 +3,7 @@
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from .config import HpcConfig
 from .ssh import SSHManager
@@ -25,6 +26,40 @@ class SyncManager:
     def __init__(self, ssh_manager: SSHManager, config: HpcConfig):
         self.ssh_manager = ssh_manager
         self.config = config
+
+    def get_git_commit(self, path: Path, short: bool = False) -> Optional[str]:
+        """Get current git commit hash"""
+        try:
+            # Check if path itself is a git repo
+            git_dir = path / ".git"
+            if not git_dir.exists():
+                return None
+
+            cmd = ["git", "rev-parse"]
+            if short:
+                cmd.append("--short")
+            cmd.append("HEAD")
+            result = subprocess.run(
+                cmd, cwd=path, capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+            return None
+        except Exception:
+            return None
+
+    def has_uncommitted_changes(self, path: Path) -> bool:
+        """Check if there are uncommitted changes"""
+        try:
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=path,
+                capture_output=True,
+                text=True,
+            )
+            return len(result.stdout.strip()) > 0
+        except Exception:
+            return False
 
     def _build_rsync_command(
         self, local_path: Path, dry_run: bool
