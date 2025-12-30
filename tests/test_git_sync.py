@@ -32,18 +32,12 @@ def git_repo(temp_dir):
     env = os.environ.copy()
     env["GIT_DIR"] = str(temp_dir / ".git")
     env["GIT_WORK_TREE"] = str(temp_dir)
+    env["GIT_AUTHOR_NAME"] = "Test"
+    env["GIT_AUTHOR_EMAIL"] = "test@test.com"
+    env["GIT_COMMITTER_NAME"] = "Test"
+    env["GIT_COMMITTER_EMAIL"] = "test@test.com"
 
     subprocess.run(["git", "init"], env=env, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        env=env,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        env=env,
-        capture_output=True,
-    )
     (temp_dir / "test.py").write_text("print('hello')")
     subprocess.run(["git", "add", "."], env=env, capture_output=True)
     subprocess.run(
