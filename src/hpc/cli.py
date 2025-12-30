@@ -50,7 +50,8 @@ def sync(apply: bool = False):
 
 @app.command()
 def submit(
-    cmd: str,
+    cmd: str = typer.Argument(None),
+    script: Path = typer.Option(None, "--script", "-s", help="Shell script file to submit"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for job completion"),
 ):
     """Submit a job to Slurm"""
@@ -58,6 +59,16 @@ def submit(
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         raise typer.Exit(1)
+
+    if not cmd and not script:
+        print("Error: provide a command or --script")
+        raise typer.Exit(1)
+
+    if script:
+        if not script.exists():
+            print(f"Script not found: {script}")
+            raise typer.Exit(1)
+        cmd = script.read_text()
 
     manager = ConfigManager()
     config = manager.load_config(config_path)

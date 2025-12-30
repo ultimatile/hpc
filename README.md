@@ -54,6 +54,8 @@ Submits a job to Slurm.
 ```bash
 hpc submit "python train.py"
 hpc submit "python train.py --epochs 100"
+hpc submit --script run.sh
+hpc submit -s run.sh --wait
 ```
 
 ### `hpc status`

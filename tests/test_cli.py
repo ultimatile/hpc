@@ -48,6 +48,22 @@ def test_submit_requires_config(cli_runner, temp_dir, monkeypatch):
     assert result.exit_code != 0
 
 
+def test_submit_requires_cmd_or_script(cli_runner, temp_dir, monkeypatch):
+    monkeypatch.chdir(temp_dir)
+    (temp_dir / "hpc.toml").write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    result = cli_runner.invoke(app, ["submit"])
+    assert result.exit_code != 0
+    assert "provide a command or --script" in result.stdout
+
+
+def test_submit_script_not_found(cli_runner, temp_dir, monkeypatch):
+    monkeypatch.chdir(temp_dir)
+    (temp_dir / "hpc.toml").write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    result = cli_runner.invoke(app, ["submit", "--script", "nonexistent.sh"])
+    assert result.exit_code != 0
+    assert "Script not found" in result.stdout
+
+
 def test_status_command_exists(cli_runner):
     result = cli_runner.invoke(app, ["status", "--help"])
     assert result.exit_code == 0
