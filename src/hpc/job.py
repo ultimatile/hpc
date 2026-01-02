@@ -21,12 +21,9 @@ class JobStatus(Enum):
 
 
 SLURM_TEMPLATE = """#!/bin/bash
-#SBATCH --job-name={{ run_id }}
-#SBATCH --partition={{ partition }}
-#SBATCH --time={{ time }}
-#SBATCH --mem={{ mem }}
-{% if gpus %}#SBATCH --gpus={{ gpus }}
-{% endif %}
+{% for key, value in slurm_options.items() %}
+#SBATCH --{{ key.replace('_', '-') }}={{ value }}
+{% endfor %}
 #SBATCH --output={{ workdir }}/.hpc/runs/{{ run_id }}/slurm-%j.out
 #SBATCH --error={{ workdir }}/.hpc/runs/{{ run_id }}/slurm-%j.err
 
@@ -53,12 +50,15 @@ class JobManager:
     def _render_slurm_script(self, run: RunConfig) -> str:
         """Render Slurm job script from template"""
         template = Template(SLURM_TEMPLATE)
+        
+        # Add job-name if not specified
+        slurm_options = self.config.slurm.options.copy()
+        if 'job_name' not in slurm_options and 'job-name' not in slurm_options:
+            slurm_options['job_name'] = run.run_id
+            
         return template.render(
             run_id=run.run_id,
-            partition=self.config.slurm.partition,
-            time=self.config.slurm.time,
-            mem=self.config.slurm.mem,
-            gpus=self.config.slurm.gpus,
+            slurm_options=slurm_options,
             workdir=self.config.cluster.workdir,
             modules=self.config.env.modules,
             conda_env=self.config.env.conda_env,
@@ -85,12 +85,15 @@ class JobManager:
     def submit_job(self, cmd: str) -> str:
         """Legacy: Submit job without run tracking"""
         template = Template(SLURM_TEMPLATE)
+        
+        # Add job-name if not specified
+        slurm_options = self.config.slurm.options.copy()
+        if 'job_name' not in slurm_options and 'job-name' not in slurm_options:
+            slurm_options['job_name'] = 'job'
+            
         script = template.render(
             run_id="job",
-            partition=self.config.slurm.partition,
-            time=self.config.slurm.time,
-            mem=self.config.slurm.mem,
-            gpus=self.config.slurm.gpus,
+            slurm_options=slurm_options,
             workdir=self.config.cluster.workdir,
             modules=self.config.env.modules,
             conda_env=self.config.env.conda_env,

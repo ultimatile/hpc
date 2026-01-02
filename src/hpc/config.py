@@ -25,10 +25,7 @@ class EnvConfig(BaseModel):
 class SlurmConfig(BaseModel):
     """Slurm job configuration"""
 
-    partition: str
-    time: str
-    mem: str
-    gpus: Optional[int] = None
+    options: dict[str, str | int] = {}
 
 
 class HpcConfig(BaseModel):
@@ -53,7 +50,7 @@ class ConfigManager:
         return HpcConfig(
             cluster=ClusterConfig(**data["cluster"]),
             env=EnvConfig(**data.get("env", {})),
-            slurm=SlurmConfig(**data["slurm"]),
+            slurm=SlurmConfig(options=data.get("slurm", {}).get("options", {})),
         )
 
     def generate_template(self, path: Path) -> None:
@@ -68,10 +65,13 @@ class ConfigManager:
                 "conda_env": "myenv",
             },
             "slurm": {
-                "partition": "gpu",
-                "time": "02:00:00",
-                "mem": "32G",
-                "gpus": 1,
+                "options": {
+                    "partition": "gpu",
+                    "time": "02:00:00",
+                    "mem": "32G",
+                    "gpus": 1,
+                    "account": "myaccount",
+                }
             },
         }
         with open(path, "wb") as f:

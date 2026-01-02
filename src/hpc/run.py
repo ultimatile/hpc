@@ -49,15 +49,18 @@ class RunManager:
         run_dir = self.runs_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
 
+        # Extract commonly used slurm options for metadata
+        slurm_options = self.config.slurm.options
+        
         return RunConfig(
             run_id=run_id,
             cmd=cmd,
             status="pending",
             git_commit=git_commit,
             created_at=datetime.now().isoformat(),
-            slurm_time=self.config.slurm.time,
-            slurm_mem=self.config.slurm.mem,
-            slurm_partition=self.config.slurm.partition,
+            slurm_time=slurm_options.get("time"),
+            slurm_mem=slurm_options.get("mem"),
+            slurm_partition=slurm_options.get("partition"),
         )
 
     def save_run_meta(self, run: RunConfig) -> None:
