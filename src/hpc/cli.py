@@ -40,7 +40,7 @@ def sync(apply: bool = False):
     sync_manager = SyncManager(ssh_manager=ssh, config=config)
 
     dry_run = not apply
-    result = sync_manager.sync_inputs(local_path=Path.cwd(), dry_run=dry_run)
+    sync_manager.sync_inputs(local_path=Path.cwd(), dry_run=dry_run)
 
     if dry_run:
         print("Dry run completed. Use --apply to sync files.")
@@ -51,7 +51,9 @@ def sync(apply: bool = False):
 @app.command()
 def submit(
     cmd: str = typer.Argument(None),
-    script: Path = typer.Option(None, "--script", "-s", help="Shell script file to submit"),
+    script: Path = typer.Option(
+        None, "--script", "-s", help="Shell script file to submit"
+    ),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for job completion"),
 ):
     """Submit a job to Slurm"""

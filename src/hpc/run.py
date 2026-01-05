@@ -1,8 +1,7 @@
 """Run management - tracking job executions"""
 
-import hashlib
 import tomllib
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -38,6 +37,7 @@ class RunManager:
     def _generate_run_id(self) -> str:
         """Generate unique run ID: YYYY-MM-DD_HHMMSS_<hash>"""
         import uuid
+
         now = datetime.now()
         timestamp = now.strftime("%Y-%m-%d_%H%M%S")
         short_hash = uuid.uuid4().hex[:6]
@@ -51,7 +51,7 @@ class RunManager:
 
         # Extract commonly used slurm options for metadata
         slurm_options = self.config.slurm.options
-        
+
         return RunConfig(
             run_id=run_id,
             cmd=cmd,

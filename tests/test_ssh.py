@@ -1,6 +1,5 @@
 """SSH manager tests"""
 
-import subprocess
 from unittest.mock import patch, MagicMock
 
 import pytest

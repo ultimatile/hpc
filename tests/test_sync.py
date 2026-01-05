@@ -1,7 +1,6 @@
 """Sync manager tests"""
 
 from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 import pytest
 
@@ -74,7 +73,9 @@ class TestSyncManagerSyncInputs:
             args_str = " ".join(call_args)
             assert "myhpc:/scratch/user/proj" in args_str
 
-    def test_sync_inputs_excludes_patterns(self, mock_ssh_manager, sample_config, temp_dir):
+    def test_sync_inputs_excludes_patterns(
+        self, mock_ssh_manager, sample_config, temp_dir
+    ):
         manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")

@@ -38,9 +38,7 @@ class SyncManager:
             if short:
                 cmd.append("--short")
             cmd.append("HEAD")
-            result = subprocess.run(
-                cmd, cwd=path, capture_output=True, text=True
-            )
+            result = subprocess.run(cmd, cwd=path, capture_output=True, text=True)
             if result.returncode == 0:
                 return result.stdout.strip()
             return None
@@ -55,8 +53,15 @@ class SyncManager:
                 return False
 
             result = subprocess.run(
-                ["git", "--git-dir", str(git_dir), "--work-tree", str(path),
-                 "status", "--porcelain"],
+                [
+                    "git",
+                    "--git-dir",
+                    str(git_dir),
+                    "--work-tree",
+                    str(path),
+                    "status",
+                    "--porcelain",
+                ],
                 capture_output=True,
                 text=True,
             )
@@ -64,9 +69,7 @@ class SyncManager:
         except Exception:
             return False
 
-    def _build_rsync_command(
-        self, local_path: Path, dry_run: bool
-    ) -> list[str]:
+    def _build_rsync_command(self, local_path: Path, dry_run: bool) -> list[str]:
         """Build rsync command with options"""
         cmd = ["rsync", "-avz"]
 

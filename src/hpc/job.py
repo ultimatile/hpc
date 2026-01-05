@@ -50,12 +50,12 @@ class JobManager:
     def _render_slurm_script(self, run: RunConfig) -> str:
         """Render Slurm job script from template"""
         template = Template(SLURM_TEMPLATE)
-        
+
         # Add job-name if not specified
         slurm_options = self.config.slurm.options.copy()
-        if 'job_name' not in slurm_options and 'job-name' not in slurm_options:
-            slurm_options['job_name'] = run.run_id
-            
+        if "job_name" not in slurm_options and "job-name" not in slurm_options:
+            slurm_options["job_name"] = run.run_id
+
         return template.render(
             run_id=run.run_id,
             slurm_options=slurm_options,
@@ -85,12 +85,12 @@ class JobManager:
     def submit_job(self, cmd: str) -> str:
         """Legacy: Submit job without run tracking"""
         template = Template(SLURM_TEMPLATE)
-        
+
         # Add job-name if not specified
         slurm_options = self.config.slurm.options.copy()
-        if 'job_name' not in slurm_options and 'job-name' not in slurm_options:
-            slurm_options['job_name'] = 'job'
-            
+        if "job_name" not in slurm_options and "job-name" not in slurm_options:
+            slurm_options["job_name"] = "job"
+
         script = template.render(
             run_id="job",
             slurm_options=slurm_options,
@@ -129,7 +129,7 @@ class JobManager:
         growth_factor: float = 2.0,
     ) -> JobStatus:
         """Wait for job to complete, polling at interval
-        
+
         Args:
             job_id: Slurm job ID
             interval: Initial polling interval in seconds

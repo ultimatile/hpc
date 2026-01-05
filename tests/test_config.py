@@ -45,7 +45,9 @@ class TestSlurmConfig:
         assert config.options == {}
 
     def test_slurm_config_with_options(self):
-        config = SlurmConfig(options={"partition": "gpu", "time": "02:00:00", "gpus": 1})
+        config = SlurmConfig(
+            options={"partition": "gpu", "time": "02:00:00", "gpus": 1}
+        )
         assert config.options["partition"] == "gpu"
         assert config.options["gpus"] == 1
 

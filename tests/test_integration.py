@@ -2,7 +2,6 @@
 
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from hpc.main import app
 from hpc import cli  # noqa: F401
@@ -22,6 +21,7 @@ class TestEndToEndWorkflow:
 
         # Verify config is loadable
         from hpc.config import ConfigManager
+
         manager = ConfigManager()
         config = manager.load_config(config_path)
         assert config.cluster.host == "myhpc"

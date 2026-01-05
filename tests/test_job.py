@@ -1,7 +1,6 @@
 """Job manager tests"""
 
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,7 +19,9 @@ def sample_config():
     return HpcConfig(
         cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj"),
         env=EnvConfig(modules=["gcc/12.2.0"]),
-        slurm=SlurmConfig(options={"partition": "gpu", "time": "02:00:00", "mem": "32G", "gpus": 1}),
+        slurm=SlurmConfig(
+            options={"partition": "gpu", "time": "02:00:00", "mem": "32G", "gpus": 1}
+        ),
     )
 
 
@@ -87,6 +88,7 @@ class TestJobManagerTemplate:
     def test_render_slurm_script(self, mock_ssh_manager, sample_config):
         manager = JobManager(ssh_manager=mock_ssh_manager, config=sample_config)
         from hpc.run import RunConfig
+
         run = RunConfig(run_id="test_run", cmd="python train.py", status="pending")
         script = manager._render_slurm_script(run)
 

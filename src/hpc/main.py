@@ -7,6 +7,7 @@ app = typer.Typer(help="HPC job execution support tool")
 
 def main():
     from . import cli  # noqa: F401 - register commands
+
     app()
 
 
