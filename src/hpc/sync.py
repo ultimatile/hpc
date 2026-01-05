@@ -14,7 +14,6 @@ class SyncResult:
     """Result of sync operation"""
 
     success: bool
-    files_synced: int
     dry_run: bool
 
 
@@ -86,10 +85,9 @@ class SyncManager:
         """Sync local files to remote HPC cluster"""
         cmd = self._build_rsync_command(local_path, dry_run)
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd)
 
         return SyncResult(
             success=result.returncode == 0,
-            files_synced=0,  # TODO: parse rsync output
             dry_run=dry_run,
         )

@@ -45,7 +45,7 @@ def sync(apply: bool = False):
     if dry_run:
         print("Dry run completed. Use --apply to sync files.")
     else:
-        print(f"Sync completed: {result.files_synced} files synced.")
+        print("Sync completed.")
 
 
 @app.command()

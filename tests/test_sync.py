@@ -26,9 +26,8 @@ def sample_config():
 
 class TestSyncResult:
     def test_sync_result_fields(self):
-        result = SyncResult(success=True, files_synced=5, dry_run=False)
+        result = SyncResult(success=True, dry_run=False)
         assert result.success is True
-        assert result.files_synced == 5
         assert result.dry_run is False
 
 
