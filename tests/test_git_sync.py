@@ -2,11 +2,10 @@
 
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-import subprocess
 
 import pytest
 
-from hpc.sync import SyncManager, SyncResult
+from hpc.sync import SyncManager
 from hpc.ssh import SSHManager
 from hpc.config import HpcConfig, ClusterConfig, EnvConfig, SlurmConfig
 
@@ -21,58 +20,46 @@ def sample_config():
     return HpcConfig(
         cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj"),
         env=EnvConfig(),
-        slurm=SlurmConfig(partition="gpu", time="02:00:00", mem="32G"),
+        slurm=SlurmConfig(options={"partition": "gpu", "time": "02:00:00", "mem": "32G"}),
     )
-
-
-@pytest.fixture
-def git_repo(temp_dir):
-    """Create a temporary git repository"""
-    import os
-    env = os.environ.copy()
-    env["GIT_DIR"] = str(temp_dir / ".git")
-    env["GIT_WORK_TREE"] = str(temp_dir)
-    env["GIT_AUTHOR_NAME"] = "Test"
-    env["GIT_AUTHOR_EMAIL"] = "test@test.com"
-    env["GIT_COMMITTER_NAME"] = "Test"
-    env["GIT_COMMITTER_EMAIL"] = "test@test.com"
-
-    subprocess.run(["git", "init"], env=env, capture_output=True)
-    (temp_dir / "test.py").write_text("print('hello')")
-    subprocess.run(["git", "add", "."], env=env, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", "initial"],
-        env=env,
-        capture_output=True,
-    )
-    return temp_dir
 
 
 class TestGitStatus:
-    def test_get_git_commit(self, mock_ssh_manager, sample_config, git_repo):
+    def test_get_git_commit(self, mock_ssh_manager, sample_config):
         manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
-        commit = manager.get_git_commit(git_repo)
-        assert commit is not None
-        assert len(commit) == 40  # full SHA
+        with patch("hpc.sync.subprocess.run") as mock_run, \
+             patch.object(Path, "exists", return_value=True):
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="abc1234567890abcdef1234567890abcdef1234\n"
+            )
+            commit = manager.get_git_commit(Path("/fake/repo"))
+            assert commit == "abc1234567890abcdef1234567890abcdef1234"
 
-    def test_get_git_commit_short(self, mock_ssh_manager, sample_config, git_repo):
+    def test_get_git_commit_short(self, mock_ssh_manager, sample_config):
         manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
-        commit = manager.get_git_commit(git_repo, short=True)
-        assert commit is not None
-        assert len(commit) == 7
+        with patch("hpc.sync.subprocess.run") as mock_run, \
+             patch.object(Path, "exists", return_value=True):
+            mock_run.return_value = MagicMock(returncode=0, stdout="abc1234\n")
+            commit = manager.get_git_commit(Path("/fake/repo"), short=True)
+            assert commit == "abc1234"
 
-    def test_has_uncommitted_changes_clean(self, mock_ssh_manager, sample_config, git_repo):
+    def test_has_uncommitted_changes_clean(self, mock_ssh_manager, sample_config):
         manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
-        assert manager.has_uncommitted_changes(git_repo) is False
+        with patch("hpc.sync.subprocess.run") as mock_run, \
+             patch.object(Path, "exists", return_value=True):
+            mock_run.return_value = MagicMock(returncode=0, stdout="")
+            assert manager.has_uncommitted_changes(Path("/fake/repo")) is False
 
-    def test_has_uncommitted_changes_dirty(self, mock_ssh_manager, sample_config, git_repo):
+    def test_has_uncommitted_changes_dirty(self, mock_ssh_manager, sample_config):
         manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
-        (git_repo / "test.py").write_text("print('modified')")
-        assert manager.has_uncommitted_changes(git_repo) is True
+        with patch("hpc.sync.subprocess.run") as mock_run, \
+             patch.object(Path, "exists", return_value=True):
+            mock_run.return_value = MagicMock(returncode=0, stdout=" M test.py\n")
+            assert manager.has_uncommitted_changes(Path("/fake/repo")) is True
 
     def test_not_git_repo(self, mock_ssh_manager, sample_config):
-        import tempfile
-        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-            manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
-            commit = manager.get_git_commit(Path(tmpdir))
+        manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        with patch.object(Path, "exists", return_value=False):
+            commit = manager.get_git_commit(Path("/not/a/repo"))
             assert commit is None
