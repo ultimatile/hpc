@@ -40,16 +40,14 @@ class TestEnvConfig:
 
 
 class TestSlurmConfig:
-    def test_slurm_config_required_fields(self):
-        config = SlurmConfig(partition="gpu", time="02:00:00", mem="32G")
-        assert config.partition == "gpu"
-        assert config.time == "02:00:00"
-        assert config.mem == "32G"
-        assert config.gpus is None
+    def test_slurm_config_default_options(self):
+        config = SlurmConfig()
+        assert config.options == {}
 
-    def test_slurm_config_with_gpus(self):
-        config = SlurmConfig(partition="gpu", time="02:00:00", mem="32G", gpus=1)
-        assert config.gpus == 1
+    def test_slurm_config_with_options(self):
+        config = SlurmConfig(options={"partition": "gpu", "time": "02:00:00", "gpus": 1})
+        assert config.options["partition"] == "gpu"
+        assert config.options["gpus"] == 1
 
 
 class TestHpcConfig:
@@ -57,11 +55,10 @@ class TestHpcConfig:
         config = HpcConfig(
             cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj"),
             env=EnvConfig(modules=["gcc/12.2.0"]),
-            slurm=SlurmConfig(partition="gpu", time="02:00:00", mem="32G"),
+            slurm=SlurmConfig(options={"partition": "gpu"}),
         )
         assert config.cluster.host == "myhpc"
-        assert config.env.modules == ["gcc/12.2.0"]
-        assert config.slurm.partition == "gpu"
+        assert config.slurm.options["partition"] == "gpu"
 
 
 class TestConfigManager:
@@ -76,7 +73,7 @@ workdir = "/scratch/user/proj"
 modules = ["gcc/12.2.0", "cuda/12.2"]
 conda_env = "myenv"
 
-[slurm]
+[slurm.options]
 partition = "gpu"
 time = "02:00:00"
 mem = "32G"
@@ -89,10 +86,10 @@ gpus = 1
         assert config.cluster.workdir == "/scratch/user/proj"
         assert config.env.modules == ["gcc/12.2.0", "cuda/12.2"]
         assert config.env.conda_env == "myenv"
-        assert config.slurm.partition == "gpu"
-        assert config.slurm.time == "02:00:00"
-        assert config.slurm.mem == "32G"
-        assert config.slurm.gpus == 1
+        assert config.slurm.options["partition"] == "gpu"
+        assert config.slurm.options["time"] == "02:00:00"
+        assert config.slurm.options["mem"] == "32G"
+        assert config.slurm.options["gpus"] == 1
 
     def test_load_config_file_not_found(self):
         manager = ConfigManager()
@@ -115,4 +112,4 @@ gpus = 1
         content = config_path.read_text()
         assert "[cluster]" in content
         assert "[env]" in content
-        assert "[slurm]" in content
+        assert "[slurm.options]" in content

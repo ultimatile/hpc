@@ -20,7 +20,7 @@ def sample_config():
     return HpcConfig(
         cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj"),
         env=EnvConfig(modules=["gcc/12.2.0"]),
-        slurm=SlurmConfig(partition="gpu", time="02:00:00", mem="32G", gpus=1),
+        slurm=SlurmConfig(options={"partition": "gpu", "time": "02:00:00", "mem": "32G", "gpus": 1}),
     )
 
 
