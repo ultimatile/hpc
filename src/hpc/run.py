@@ -80,3 +80,10 @@ class RunManager:
                 if meta_path.exists():
                     runs.append(self.load_run_meta(run_dir.name))
         return runs
+
+    def find_run_by_job_id(self, job_id: str) -> Optional[RunConfig]:
+        """Find run by job ID"""
+        for run in self.list_runs():
+            if run.job_id == job_id:
+                return run
+        return None

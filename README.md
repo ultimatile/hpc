@@ -26,6 +26,9 @@ hpc submit "python train.py"
 
 # 5. Check status
 hpc status 12345678
+
+# 6. View job output
+hpc job-output 12345678
 ```
 
 ## Commands
@@ -64,6 +67,14 @@ Checks the status of a submitted job.
 
 ```bash
 hpc status 12345678
+```
+
+### `hpc job-output`
+
+Shows the output of a Slurm job.
+
+```bash
+hpc job-output 12345678
 ```
 
 ### `hpc wait`

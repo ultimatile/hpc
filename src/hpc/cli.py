@@ -164,10 +164,18 @@ def job_output(job_id: str):
     manager = ConfigManager()
     config = manager.load_config(config_path)
 
+    runs_dir = Path(".hpc/runs")
+    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    run = run_manager.find_run_by_job_id(job_id)
+
+    if not run:
+        print(f"Run not found for job ID: {job_id}")
+        raise typer.Exit(1)
+
     ssh = SSHManager(host=config.cluster.host)
     job_manager = JobManager(ssh_manager=ssh, config=config)
 
-    output = job_manager.get_job_output(job_id)
+    output = job_manager.get_job_output(run.run_id, job_id)
     print(output, end="")
 
 
