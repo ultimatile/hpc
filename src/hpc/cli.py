@@ -153,6 +153,24 @@ def list_runs():
         print(f"{run.run_id}: {run.status}{job_info} - {run.cmd}")
 
 
+@app.command(name="job-output")
+def job_output(job_id: str):
+    """Show Slurm job output"""
+    config_path = Path("hpc.toml")
+    if not config_path.exists():
+        print(f"Config file not found: {config_path}")
+        raise typer.Exit(1)
+
+    manager = ConfigManager()
+    config = manager.load_config(config_path)
+
+    ssh = SSHManager(host=config.cluster.host)
+    job_manager = JobManager(ssh_manager=ssh, config=config)
+
+    output = job_manager.get_job_output(job_id)
+    print(output, end="")
+
+
 @app.command()
 def wait(run_id: str):
     """Wait for a run to complete"""

@@ -128,6 +128,13 @@ class JobManager:
         }
         return status_map.get(status_str, JobStatus.FAILED)
 
+    def get_job_output(self, job_id: str) -> str:
+        """Get job output file contents"""
+        workdir = _expand_tilde(self.config.cluster.workdir)
+        output_path = f"{workdir}/slurm-{job_id}.out"
+        result = self.ssh_manager.run_command(f"cat {output_path}")
+        return result.stdout
+
     def wait_for_job(
         self,
         job_id: str,
