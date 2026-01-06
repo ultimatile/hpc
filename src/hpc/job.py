@@ -1,5 +1,6 @@
 """Slurm job management"""
 
+import re
 from enum import Enum
 
 from jinja2 import Template
@@ -7,6 +8,11 @@ from jinja2 import Template
 from .config import HpcConfig
 from .ssh import SSHManager
 from .run import RunConfig
+
+
+def _expand_tilde(path: str) -> str:
+    """Replace leading ~ with $HOME for shell expansion"""
+    return re.sub(r"^~(?=/|$)", "$HOME", path)
 
 
 class JobStatus(Enum):
@@ -56,10 +62,11 @@ class JobManager:
         if "job_name" not in slurm_options and "job-name" not in slurm_options:
             slurm_options["job_name"] = run.run_id
 
+        workdir = _expand_tilde(self.config.cluster.workdir)
         return template.render(
             run_id=run.run_id,
             slurm_options=slurm_options,
-            workdir=self.config.cluster.workdir,
+            workdir=workdir,
             modules=self.config.env.modules,
             conda_env=self.config.env.conda_env,
             cmd=run.cmd,
@@ -70,7 +77,8 @@ class JobManager:
         script = self._render_slurm_script(run)
 
         # Create run directory on remote
-        run_dir = f"{self.config.cluster.workdir}/.hpc/runs/{run.run_id}"
+        workdir = _expand_tilde(self.config.cluster.workdir)
+        run_dir = f"{workdir}/.hpc/runs/{run.run_id}"
         self.ssh_manager.run_command(f"mkdir -p {run_dir}")
 
         # Write script to remote
