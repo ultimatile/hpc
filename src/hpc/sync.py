@@ -69,7 +69,9 @@ class SyncManager:
         except Exception:
             return False
 
-    def _build_rsync_command(self, local_path: Path, dry_run: bool) -> list[str]:
+    def _build_rsync_command(
+        self, local_path: Path, dry_run: bool, reverse: bool = False
+    ) -> list[str]:
         """Build rsync command with options"""
         cmd = ["rsync", "-avz"]
 
@@ -82,18 +84,28 @@ class SyncManager:
         for pattern in self.config.sync.ignore:
             cmd.extend(["--exclude", pattern])
 
-        target = f"{self.config.cluster.host}:{self.config.cluster.workdir}"
-        cmd.extend([str(local_path) + "/", target])
+        remote = f"{self.config.cluster.host}:{self.config.cluster.workdir}"
+        local = str(local_path) + "/"
+
+        if reverse:
+            cmd.extend([remote + "/", local])
+        else:
+            cmd.extend([local, remote])
 
         return cmd
 
-    def sync_inputs(self, local_path: Path, dry_run: bool = True) -> SyncResult:
+    def sync_push(self, local_path: Path, dry_run: bool = True) -> SyncResult:
         """Sync local files to remote HPC cluster"""
-        cmd = self._build_rsync_command(local_path, dry_run)
-
+        cmd = self._build_rsync_command(local_path, dry_run, reverse=False)
         result = subprocess.run(cmd)
+        return SyncResult(success=result.returncode == 0, dry_run=dry_run)
 
-        return SyncResult(
-            success=result.returncode == 0,
-            dry_run=dry_run,
-        )
+    def sync_pull(self, local_path: Path, dry_run: bool = True) -> SyncResult:
+        """Sync remote files to local"""
+        cmd = self._build_rsync_command(local_path, dry_run, reverse=True)
+        result = subprocess.run(cmd)
+        return SyncResult(success=result.returncode == 0, dry_run=dry_run)
+
+    def sync_inputs(self, local_path: Path, dry_run: bool = True) -> SyncResult:
+        """Sync local files to remote HPC cluster (alias for sync_push)"""
+        return self.sync_push(local_path, dry_run)
