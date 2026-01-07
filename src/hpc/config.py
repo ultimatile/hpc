@@ -1,5 +1,6 @@
 """Configuration management"""
 
+import sys
 import tomllib
 from pathlib import Path
 from typing import Optional
@@ -43,6 +44,9 @@ class HpcConfig(BaseModel):
     slurm: SlurmConfig
 
 
+KNOWN_SECTIONS = {"cluster", "env", "sync", "slurm"}
+
+
 class ConfigManager:
     """TOML configuration file manager"""
 
@@ -53,6 +57,10 @@ class ConfigManager:
 
         with open(path, "rb") as f:
             data = tomllib.load(f)
+
+        unknown = set(data.keys()) - KNOWN_SECTIONS
+        for section in sorted(unknown):
+            print(f"\033[33mWarning: unknown section [{section}] in {path}\033[0m", file=sys.stderr)
 
         return HpcConfig(
             cluster=ClusterConfig(**data["cluster"]),
