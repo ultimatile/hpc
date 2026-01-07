@@ -60,7 +60,10 @@ class ConfigManager:
 
         unknown = set(data.keys()) - KNOWN_SECTIONS
         for section in sorted(unknown):
-            print(f"\033[33mWarning: unknown section [{section}] in {path}\033[0m", file=sys.stderr)
+            print(
+                f"\033[33mWarning: unknown section [{section}] in {path}\033[0m",
+                file=sys.stderr,
+            )
 
         return HpcConfig(
             cluster=ClusterConfig(**data["cluster"]),
