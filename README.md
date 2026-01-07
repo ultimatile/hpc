@@ -98,6 +98,9 @@ workdir = "/scratch/user/proj"    # Remote working directory
 modules = ["gcc/12.2.0", "cuda/12.2"]  # Modules to load
 conda_env = "myenv"                     # Conda environment (optional)
 
+[sync]
+ignore = ["data/", "*.log", "outputs/"]  # Patterns to exclude from sync
+
 [slurm]
 partition = "gpu"      # Slurm partition
 time = "02:00:00"      # Time limit

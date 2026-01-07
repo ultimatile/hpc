@@ -79,6 +79,9 @@ class SyncManager:
         for pattern in self.DEFAULT_EXCLUDES:
             cmd.extend(["--exclude", pattern])
 
+        for pattern in self.config.sync.ignore:
+            cmd.extend(["--exclude", pattern])
+
         target = f"{self.config.cluster.host}:{self.config.cluster.workdir}"
         cmd.extend([str(local_path) + "/", target])
 

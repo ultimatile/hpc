@@ -22,6 +22,12 @@ class EnvConfig(BaseModel):
     conda_env: Optional[str] = None
 
 
+class SyncConfig(BaseModel):
+    """Sync configuration"""
+
+    ignore: list[str] = []
+
+
 class SlurmConfig(BaseModel):
     """Slurm job configuration"""
 
@@ -33,6 +39,7 @@ class HpcConfig(BaseModel):
 
     cluster: ClusterConfig
     env: EnvConfig
+    sync: SyncConfig = SyncConfig()
     slurm: SlurmConfig
 
 
@@ -50,6 +57,7 @@ class ConfigManager:
         return HpcConfig(
             cluster=ClusterConfig(**data["cluster"]),
             env=EnvConfig(**data.get("env", {})),
+            sync=SyncConfig(**data.get("sync", {})),
             slurm=SlurmConfig(options=data.get("slurm", {}).get("options", {})),
         )
 
@@ -63,6 +71,9 @@ class ConfigManager:
             "env": {
                 "modules": ["gcc/12.2.0", "cuda/12.2"],
                 "conda_env": "myenv",
+            },
+            "sync": {
+                "ignore": [],
             },
             "slurm": {
                 "options": {
