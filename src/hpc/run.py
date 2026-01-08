@@ -69,7 +69,11 @@ class RunManager:
         meta_path = self.runs_dir / run_id / "meta.toml"
         with open(meta_path, "rb") as f:
             data = tomllib.load(f)
-        return RunConfig(**data)
+        # Only use fields that are defined in RunConfig
+        from dataclasses import fields
+        valid_fields = {f.name for f in fields(RunConfig)}
+        filtered_data = {k: v for k, v in data.items() if k in valid_fields}
+        return RunConfig(**filtered_data)
 
     def list_runs(self) -> list[RunConfig]:
         """List all runs"""
