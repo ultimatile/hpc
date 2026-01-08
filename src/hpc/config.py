@@ -83,7 +83,7 @@ class ConfigManager:
                 "modules": ["gcc/12.2.0", "cuda/12.2"],
             },
             "sync": {
-                "ignore": [],
+                "ignore": ["hpc.toml", ".git"],
             },
             "slurm": {
                 "options": {
