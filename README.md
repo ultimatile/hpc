@@ -1,11 +1,12 @@
 # hpc
 
-An automation CLI tool for HPC workflow.
+An automation CLI tool for HPC workflow: source code and data sync and SLURM job management.
 
 ## Installation
 
 ```bash
-uv sync
+# execute in this repo
+uv tool install .
 ```
 
 ## Quick Start
@@ -53,10 +54,10 @@ hpc sync --apply   # actual sync
 ### `hpc submit`
 
 Submits a job to Slurm.
+Returns both run_id (e.g., `20260109_1234`, hpc's local tracking ID) and job_id (Slurm's job ID, e.g., `12345678`).
 
 ```bash
 hpc submit "python train.py"
-hpc submit "python train.py --epochs 100"
 hpc submit --script run.sh
 hpc submit -s run.sh --wait
 ```
@@ -64,6 +65,7 @@ hpc submit -s run.sh --wait
 ### `hpc status`
 
 Checks the status of a submitted job.
+Accepts either run_id or job_id.
 
 ```bash
 hpc status 12345678
@@ -72,6 +74,7 @@ hpc status 12345678
 ### `hpc job-output`
 
 Shows the output of a Slurm job.
+Accepts either run_id or job_id.
 
 ```bash
 hpc job-output 12345678
@@ -80,9 +83,10 @@ hpc job-output 12345678
 ### `hpc wait`
 
 Waits for a run to complete.
+Accepts either run_id or job_id.
 
 ```bash
-hpc wait <run_id>
+hpc wait 12345678
 ```
 
 ## Configuration
@@ -92,14 +96,14 @@ Edit `hpc.toml`:
 ```toml
 [cluster]
 host = "myhpc"                    # SSH host (from ~/.ssh/config)
-workdir = "/scratch/user/proj"    # Remote working directory
+workdir = "/scratch/user/proj"    # Remote working directory; all codes and data will be synced here
 
 [env]
 modules = ["gcc/12.2.0", "cuda/12.2"]  # Modules to load
-conda_env = "myenv"                     # Conda environment (optional)
+conda_env = "myenv"                    # Conda environment (optional, runs `conda activate myenv` before job)
 
 [sync]
-ignore = ["data/", "*.log", "outputs/"]  # Patterns to exclude from sync
+ignore = ["hpc.toml", ".git"]  # Patterns to exclude from sync
 
 [slurm]
 partition = "gpu"      # Slurm partition
@@ -107,6 +111,8 @@ time = "02:00:00"      # Time limit
 mem = "32G"            # Memory
 gpus = 1               # Number of GPUs (optional)
 ```
+
+`$XDG_CONFIG_HOME/hpc/config.toml` (default: `~/.config/hpc/config.toml`) will be copied as `hpc.toml` if it exists when running `hpc init`.
 
 ## Requirements
 
