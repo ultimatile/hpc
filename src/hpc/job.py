@@ -15,6 +15,19 @@ def _expand_tilde(path: str) -> str:
     return re.sub(r"^~(?=/|$)", "$HOME", path)
 
 
+def _resolve_home_path(ssh_manager, path: str) -> str:
+    """Resolve ~ to actual home directory path via SSH"""
+    if path.startswith("~/") or path == "~":
+        # Get the actual home directory from remote system
+        result = ssh_manager.run_command("echo $HOME")
+        home_dir = result.stdout.strip()
+        if path == "~":
+            return home_dir
+        else:
+            return path.replace("~", home_dir, 1)
+    return path
+
+
 class JobStatus(Enum):
     """Slurm job status"""
 
@@ -62,7 +75,7 @@ class JobManager:
         if "job_name" not in slurm_options and "job-name" not in slurm_options:
             slurm_options["job_name"] = run.run_id
 
-        workdir = _expand_tilde(self.config.cluster.workdir)
+        workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
         return template.render(
             run_id=run.run_id,
             slurm_options=slurm_options,
@@ -130,10 +143,20 @@ class JobManager:
 
     def get_job_output(self, run_id: str, job_id: str) -> str:
         """Get job output file contents"""
-        workdir = _expand_tilde(self.config.cluster.workdir)
+        workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
         output_path = f"{workdir}/.hpc/runs/{run_id}/slurm-{job_id}.out"
-        result = self.ssh_manager.run_command(f"cat {output_path}")
-        return result.stdout
+        
+        # Try the correct path first
+        try:
+            result = self.ssh_manager.run_command(f"cat {output_path}")
+            return result.stdout
+        except Exception:
+            # Fallback: try the path with literal $HOME (for existing files with the bug)
+            # The actual path is /hs/work0/home/users/hidehiko.kohshiro/$HOME/tci-cudax/...
+            workdir_without_tilde = self.config.cluster.workdir[2:] if self.config.cluster.workdir.startswith("~/") else self.config.cluster.workdir
+            fallback_path = f"/hs/work0/home/users/hidehiko.kohshiro/$HOME/{workdir_without_tilde}/.hpc/runs/{run_id}/slurm-{job_id}.out"
+            result = self.ssh_manager.run_command(f"cat '{fallback_path}'")
+            return result.stdout
 
     def wait_for_job(
         self,
