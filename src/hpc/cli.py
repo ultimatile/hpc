@@ -141,19 +141,38 @@ def submit(
 
 
 @app.command()
-def status(job_id: str = typer.Argument(None)):
-    """Check job status"""
+def status(id: str = typer.Argument(None)):
+    """Check job status (accepts run_id or job_id)"""
     config_path = Path("hpc.toml")
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         raise typer.Exit(1)
 
-    if not job_id:
-        print("Please specify a job ID")
+    if not id:
+        print("Please specify a run_id or job_id")
         raise typer.Exit(1)
 
     manager = ConfigManager()
     config = manager.load_config(config_path)
+
+    runs_dir = Path(".hpc/runs")
+    run_manager = RunManager(config=config, runs_dir=runs_dir)
+
+    # Try as run_id first, then as job_id
+    try:
+        run = run_manager.load_run_meta(id)
+        job_id = run.job_id
+    except FileNotFoundError:
+        run = run_manager.find_run_by_job_id(id)
+        job_id = id
+
+    if run and not job_id:
+        print(f"Run {run.run_id} has no job ID")
+        raise typer.Exit(1)
+
+    if not job_id:
+        print(f"Run not found: {id}")
+        raise typer.Exit(1)
 
     ssh = SSHManager(host=config.cluster.host)
     job_manager = JobManager(ssh_manager=ssh, config=config)
@@ -187,8 +206,8 @@ def list_runs():
 
 
 @app.command(name="job-output")
-def job_output(job_id: str):
-    """Show Slurm job output"""
+def job_output(id: str):
+    """Show Slurm job output (accepts run_id or job_id)"""
     config_path = Path("hpc.toml")
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
@@ -199,22 +218,31 @@ def job_output(job_id: str):
 
     runs_dir = Path(".hpc/runs")
     run_manager = RunManager(config=config, runs_dir=runs_dir)
-    run = run_manager.find_run_by_job_id(job_id)
+
+    # Try as run_id first, then as job_id
+    try:
+        run = run_manager.load_run_meta(id)
+    except FileNotFoundError:
+        run = run_manager.find_run_by_job_id(id)
 
     if not run:
-        print(f"Run not found for job ID: {job_id}")
+        print(f"Run not found: {id}")
+        raise typer.Exit(1)
+
+    if not run.job_id:
+        print(f"Run {run.run_id} has no job ID")
         raise typer.Exit(1)
 
     ssh = SSHManager(host=config.cluster.host)
     job_manager = JobManager(ssh_manager=ssh, config=config)
 
-    output = job_manager.get_job_output(run.run_id, job_id)
+    output = job_manager.get_job_output(run.run_id, run.job_id)
     print(output, end="")
 
 
 @app.command()
-def wait(run_id: str):
-    """Wait for a run to complete"""
+def wait(id: str):
+    """Wait for a run to complete (accepts run_id or job_id)"""
     config_path = Path("hpc.toml")
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
@@ -226,14 +254,18 @@ def wait(run_id: str):
     runs_dir = Path(".hpc/runs")
     run_manager = RunManager(config=config, runs_dir=runs_dir)
 
+    # Try as run_id first, then as job_id
     try:
-        run = run_manager.load_run_meta(run_id)
+        run = run_manager.load_run_meta(id)
     except FileNotFoundError:
-        print(f"Run not found: {run_id}")
+        run = run_manager.find_run_by_job_id(id)
+
+    if not run:
+        print(f"Run not found: {id}")
         raise typer.Exit(1)
 
     if not run.job_id:
-        print(f"Run {run_id} has no job ID")
+        print(f"Run {run.run_id} has no job ID")
         raise typer.Exit(1)
 
     ssh = SSHManager(host=config.cluster.host)
