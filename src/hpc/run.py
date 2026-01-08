@@ -71,6 +71,7 @@ class RunManager:
             data = tomllib.load(f)
         # Only use fields that are defined in RunConfig
         from dataclasses import fields
+
         valid_fields = {f.name for f in fields(RunConfig)}
         filtered_data = {k: v for k, v in data.items() if k in valid_fields}
         return RunConfig(**filtered_data)
