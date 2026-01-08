@@ -1,5 +1,7 @@
 """CLI command definitions"""
 
+import os
+import shutil
 from pathlib import Path
 
 import typer
@@ -12,6 +14,12 @@ from .job import JobManager
 from .run import RunManager
 
 
+def _get_user_config_path() -> Path:
+    """Get user config path from XDG_CONFIG_HOME/hpc/config.toml"""
+    xdg_config = os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
+    return Path(xdg_config) / "hpc" / "config.toml"
+
+
 @app.command()
 def init():
     """Initialize HPC project configuration"""
@@ -19,9 +27,15 @@ def init():
     if config_path.exists():
         print(f"Config file already exists: {config_path}")
         return
-    manager = ConfigManager()
-    manager.generate_template(config_path)
-    print(f"Created config file: {config_path}")
+
+    user_config = _get_user_config_path()
+    if user_config.exists():
+        shutil.copy(user_config, config_path)
+        print(f"Copied from {user_config}: {config_path}")
+    else:
+        manager = ConfigManager()
+        manager.generate_template(config_path)
+        print(f"Created config file: {config_path}")
 
 
 @app.command()
