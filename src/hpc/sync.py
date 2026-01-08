@@ -20,8 +20,6 @@ class SyncResult:
 class SyncManager:
     """rsync-based file synchronization manager"""
 
-    DEFAULT_EXCLUDES = [".git", "__pycache__", "*.pyc", ".venv", "node_modules"]
-
     def __init__(self, ssh_manager: SSHManager, config: HpcConfig):
         self.ssh_manager = ssh_manager
         self.config = config
@@ -77,9 +75,6 @@ class SyncManager:
 
         if dry_run:
             cmd.append("--dry-run")
-
-        for pattern in self.DEFAULT_EXCLUDES:
-            cmd.extend(["--exclude", pattern])
 
         for pattern in self.config.sync.ignore:
             cmd.extend(["--exclude", pattern])
