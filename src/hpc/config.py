@@ -81,7 +81,6 @@ class ConfigManager:
             },
             "env": {
                 "modules": ["gcc/12.2.0", "cuda/12.2"],
-                "conda_env": "myenv",
             },
             "sync": {
                 "ignore": [],
