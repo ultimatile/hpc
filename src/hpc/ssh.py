@@ -1,6 +1,8 @@
 """SSH connection management"""
 
 import os
+import re
+import shlex
 import subprocess
 from dataclasses import dataclass
 from typing import Optional
@@ -57,6 +59,11 @@ class SSHManager:
 
         return ssh_cmd
 
+    def _validate_command_name(self, cmd: str) -> None:
+        """Validate command name for safe execution"""
+        if not re.fullmatch(r"[A-Za-z0-9_./-]+", cmd):
+            raise ValueError(f"Invalid command name: {cmd!r}")
+
     def test_connection(self) -> bool:
         """Test SSH connection"""
         try:
@@ -69,12 +76,24 @@ class SSHManager:
         except Exception:
             return False
 
-    def run_command(self, cmd: str) -> CommandResult:
+    def run_command(
+        self,
+        cmd: str,
+        args: Optional[list[str]] = None,
+        input_text: Optional[str] = None,
+    ) -> CommandResult:
         """Execute command on remote host"""
+        if args is None:
+            args = []
+        self._validate_command_name(cmd)
+        quoted_parts = [shlex.quote(cmd), *[shlex.quote(arg) for arg in args]]
+        command = " ".join(quoted_parts)
+
         result = subprocess.run(
-            self._build_ssh_command(cmd),
+            self._build_ssh_command(command),
             capture_output=True,
             text=True,
+            input=input_text,
         )
 
         if result.returncode != 0:

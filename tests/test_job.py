@@ -53,9 +53,9 @@ class TestJobManagerSubmit:
         mock_ssh_manager.run_command.return_value = MagicMock(stdout="12345678\n")
 
         manager.submit_job("python train.py")
-        call_args = mock_ssh_manager.run_command.call_args[0][0]
-        assert "sbatch" in call_args
-        assert "--parsable" in call_args
+        call_args = mock_ssh_manager.run_command.call_args
+        assert call_args.args[0] == "sbatch"
+        assert "--parsable" in call_args.args[1]
 
 
 class TestJobManagerStatus:
@@ -78,10 +78,10 @@ class TestJobManagerStatus:
         mock_ssh_manager.run_command.return_value = MagicMock(stdout="COMPLETED\n")
 
         manager.get_job_status("12345678")
-        call_args = mock_ssh_manager.run_command.call_args[0][0]
-        assert "sacct" in call_args
-        assert "12345678" in call_args
-        assert "--noheader" in call_args
+        call_args = mock_ssh_manager.run_command.call_args
+        assert call_args.args[0] == "sacct"
+        assert "12345678" in call_args.args[1]
+        assert "--noheader" in call_args.args[1]
 
 
 class TestJobManagerTemplate:

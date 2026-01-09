@@ -40,7 +40,7 @@ class TestSSHManagerRunCommand:
                 stdout="output",
                 stderr="",
             )
-            result = manager.run_command("echo hello")
+            result = manager.run_command("echo", ["hello"])
             assert result.returncode == 0
             assert result.stdout == "output"
 
@@ -48,7 +48,7 @@ class TestSSHManagerRunCommand:
         manager = SSHManager(host="myhpc")
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-            manager.run_command("echo hello")
+            manager.run_command("echo", ["hello"])
             call_args = mock_run.call_args[0][0]
             assert "-q" in call_args
 
@@ -61,7 +61,7 @@ class TestSSHManagerRunCommand:
                 stderr="Connection refused",
             )
             with pytest.raises(SSHError):
-                manager.run_command("echo hello")
+                manager.run_command("echo", ["hello"])
 
     def test_run_command_captures_stderr(self):
         manager = SSHManager(host="myhpc")
@@ -80,7 +80,7 @@ class TestSSHManagerControlMaster:
         manager = SSHManager(host="myhpc", use_control_master=True)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-            manager.run_command("echo hello")
+            manager.run_command("echo", ["hello"])
             call_args = mock_run.call_args[0][0]
             args_str = " ".join(call_args)
             assert "ControlMaster" in args_str
