@@ -6,7 +6,7 @@ import pytest
 
 from hpc.sync import SyncManager, SyncResult
 from hpc.ssh import SSHManager
-from hpc.config import HpcConfig, ClusterConfig, EnvConfig, SlurmConfig
+from hpc.config import HpcConfig, ClusterConfig, EnvConfig, SlurmConfig, SyncConfig
 
 
 @pytest.fixture
@@ -19,6 +19,7 @@ def sample_config():
     return HpcConfig(
         cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj"),
         env=EnvConfig(),
+        sync=SyncConfig(ignore=[".git", "__pycache__"]),
         slurm=SlurmConfig(partition="gpu", time="02:00:00", mem="32G"),
     )
 
