@@ -1,6 +1,7 @@
 """Slurm job management"""
 
 import re
+import shlex
 from enum import Enum
 
 from jinja2 import Template
@@ -92,15 +93,19 @@ class JobManager:
         # Create run directory on remote
         workdir = _expand_tilde(self.config.cluster.workdir)
         run_dir = f"{workdir}/.hpc/runs/{run.run_id}"
-        self.ssh_manager.run_command(f"mkdir -p {run_dir}")
+        self.ssh_manager.run_command(f"mkdir -p {shlex.quote(run_dir)}")
 
         # Write script to remote
         script_path = f"{run_dir}/job.sh"
         escaped_script = script.replace("'", "'\\''")
-        self.ssh_manager.run_command(f"echo '{escaped_script}' > {script_path}")
+        self.ssh_manager.run_command(
+            f"echo '{escaped_script}' > {shlex.quote(script_path)}"
+        )
 
         # Submit with sbatch --parsable
-        result = self.ssh_manager.run_command(f"sbatch --parsable {script_path}")
+        result = self.ssh_manager.run_command(
+            f"sbatch --parsable {shlex.quote(script_path)}"
+        )
         return result.stdout.strip()
 
     def submit_job(self, cmd: str) -> str:
@@ -127,9 +132,9 @@ class JobManager:
 
     def get_job_status(self, job_id: str) -> JobStatus:
         """Get job status using sacct"""
-        cmd = f"sacct -j {job_id} --format=State --noheader | head -1"
+        cmd = f"sacct -j {shlex.quote(job_id)} --format=State --noheader"
         result = self.ssh_manager.run_command(cmd)
-        status_str = result.stdout.strip()
+        status_str = result.stdout.strip().splitlines()[0] if result.stdout else ""
 
         status_map = {
             "PENDING": JobStatus.PENDING,
@@ -148,7 +153,7 @@ class JobManager:
 
         # Try the correct path first
         try:
-            result = self.ssh_manager.run_command(f"cat {output_path}")
+            result = self.ssh_manager.run_command(f"cat {shlex.quote(output_path)}")
             return result.stdout
         except Exception:
             # Fallback: try the path with literal $HOME (for existing files with the bug)
@@ -159,7 +164,7 @@ class JobManager:
                 else self.config.cluster.workdir
             )
             fallback_path = f"/hs/work0/home/users/hidehiko.kohshiro/$HOME/{workdir_without_tilde}/.hpc/runs/{run_id}/slurm-{job_id}.out"
-            result = self.ssh_manager.run_command(f"cat '{fallback_path}'")
+            result = self.ssh_manager.run_command(f"cat {shlex.quote(fallback_path)}")
             return result.stdout
 
     def wait_for_job(
