@@ -16,6 +16,26 @@ class TestSSHManagerInit:
         manager = SSHManager(host="myhpc", user="testuser")
         assert manager.user == "testuser"
 
+    def test_init_rejects_empty_host(self):
+        with pytest.raises(ValueError):
+            SSHManager(host="")
+
+    def test_init_rejects_host_starting_with_dash(self):
+        with pytest.raises(ValueError):
+            SSHManager(host="-oProxyCommand=bad")
+
+    def test_init_rejects_host_with_whitespace(self):
+        with pytest.raises(ValueError):
+            SSHManager(host="bad host")
+
+    def test_init_rejects_user_starting_with_dash(self):
+        with pytest.raises(ValueError):
+            SSHManager(host="myhpc", user="-oProxyCommand=bad")
+
+    def test_init_rejects_user_with_whitespace(self):
+        with pytest.raises(ValueError):
+            SSHManager(host="myhpc", user="bad user")
+
 
 class TestSSHManagerConnection:
     def test_test_connection_success(self):

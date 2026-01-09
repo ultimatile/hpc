@@ -32,10 +32,22 @@ class SSHManager:
         user: Optional[str] = None,
         use_control_master: bool = False,
     ):
+        self._validate_target_component("host", host)
+        if user is not None:
+            self._validate_target_component("user", user)
         self.host = host
         self.user = user
         self.use_control_master = use_control_master
         self._control_path = f"/tmp/hpc_ssh_{host}_{os.getpid()}"
+
+    def _validate_target_component(self, label: str, value: str) -> None:
+        """Reject values that could be treated as ssh options"""
+        if not value:
+            raise ValueError(f"{label} must not be empty")
+        if value.startswith("-"):
+            raise ValueError(f"{label} must not start with '-'")
+        if re.search(r"\s", value):
+            raise ValueError(f"{label} must not contain whitespace")
 
     def _build_ssh_command(self, cmd: str) -> list[str]:
         """Build SSH command with options"""
