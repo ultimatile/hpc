@@ -67,3 +67,33 @@ def test_submit_script_not_found(cli_runner, temp_dir, monkeypatch):
 def test_status_command_exists(cli_runner):
     result = cli_runner.invoke(app, ["status", "--help"])
     assert result.exit_code == 0
+
+
+def test_config_option(cli_runner, temp_dir, monkeypatch):
+    """Test --config option loads specified config file"""
+    monkeypatch.chdir(temp_dir)
+    custom_config = temp_dir / "custom.toml"
+    custom_config.write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    result = cli_runner.invoke(app, ["--config", str(custom_config), "sync"])
+    # Should not fail with "Config file not found" since custom.toml exists
+    assert "Config file not found" not in result.stdout
+
+
+def test_config_env_var(cli_runner, temp_dir, monkeypatch):
+    """Test HPC_CONFIG environment variable"""
+    monkeypatch.chdir(temp_dir)
+    custom_config = temp_dir / "env.toml"
+    custom_config.write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    monkeypatch.setenv("HPC_CONFIG", str(custom_config))
+    result = cli_runner.invoke(app, ["sync"])
+    assert "Config file not found" not in result.stdout
+
+
+def test_config_option_overrides_env(cli_runner, temp_dir, monkeypatch):
+    """Test --config takes precedence over HPC_CONFIG"""
+    monkeypatch.chdir(temp_dir)
+    opt_config = temp_dir / "opt.toml"
+    opt_config.write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    monkeypatch.setenv("HPC_CONFIG", "nonexistent.toml")
+    result = cli_runner.invoke(app, ["--config", str(opt_config), "sync"])
+    assert "Config file not found" not in result.stdout

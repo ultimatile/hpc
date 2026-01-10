@@ -3,11 +3,32 @@
 import os
 import shutil
 from pathlib import Path
+from typing import Optional
 
 import typer
+from typing_extensions import Annotated
 
 from .main import app
 from .config import ConfigManager
+
+# Global config path
+_config_path: Path = Path("hpc.toml")
+
+
+def get_config_path() -> Path:
+    return _config_path
+
+
+@app.callback()
+def main(
+    config: Annotated[Optional[Path], typer.Option("--config", "-c", help="Config file path")] = None,
+):
+    """HPC workflow automation tool"""
+    global _config_path
+    if config:
+        _config_path = config
+    elif env_config := os.environ.get("HPC_CONFIG"):
+        _config_path = Path(env_config)
 from .ssh import SSHManager
 from .sync import SyncManager
 from .job import JobManager
@@ -23,7 +44,7 @@ def _get_user_config_path() -> Path:
 @app.command()
 def init():
     """Initialize HPC project configuration"""
-    config_path = Path("hpc.toml")
+    config_path = get_config_path()
     if config_path.exists():
         print(f"Config file already exists: {config_path}")
         return
@@ -45,7 +66,7 @@ def sync(
     pull: bool = typer.Option(False, "--pull", help="Only pull remote to local"),
 ):
     """Sync files bidirectionally with remote HPC cluster (push then pull)"""
-    config_path = Path("hpc.toml")
+    config_path = get_config_path()
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         print("Run 'hpc init' first to create a config file.")
@@ -90,7 +111,7 @@ def submit(
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for job completion"),
 ):
     """Submit a job to Slurm"""
-    config_path = Path("hpc.toml")
+    config_path = get_config_path()
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         raise typer.Exit(1)
@@ -143,7 +164,7 @@ def submit(
 @app.command()
 def status(id: str = typer.Argument(None)):
     """Check job status (accepts run_id or job_id)"""
-    config_path = Path("hpc.toml")
+    config_path = get_config_path()
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         raise typer.Exit(1)
@@ -184,7 +205,7 @@ def status(id: str = typer.Argument(None)):
 @app.command(name="list")
 def list_runs():
     """List all runs"""
-    config_path = Path("hpc.toml")
+    config_path = get_config_path()
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         raise typer.Exit(1)
@@ -208,7 +229,7 @@ def list_runs():
 @app.command(name="job-output")
 def job_output(id: str):
     """Show Slurm job output (accepts run_id or job_id)"""
-    config_path = Path("hpc.toml")
+    config_path = get_config_path()
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         raise typer.Exit(1)
@@ -243,7 +264,7 @@ def job_output(id: str):
 @app.command()
 def wait(id: str):
     """Wait for a run to complete (accepts run_id or job_id)"""
-    config_path = Path("hpc.toml")
+    config_path = get_config_path()
     if not config_path.exists():
         print(f"Config file not found: {config_path}")
         raise typer.Exit(1)
