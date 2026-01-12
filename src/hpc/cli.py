@@ -9,7 +9,7 @@ import typer
 from typing_extensions import Annotated
 
 from .main import app
-from .config import ConfigManager
+from .config import ConfigManager, HpcConfig
 from .ssh import SSHManager
 from .sync import SyncManager
 from .job import JobManager
@@ -21,13 +21,23 @@ ConfigOption = Annotated[
 ]
 
 
-def _resolve_config_path(config: Optional[Path]) -> Path:
+def _resolve_config_path(config_path: Optional[Path]) -> Path:
     """Resolve config path: --config > $HPC_CONFIG > hpc.toml"""
-    if config:
-        return config
+    if config_path:
+        return config_path
     if env_config := os.environ.get("HPC_CONFIG"):
         return Path(env_config)
     return Path("hpc.toml")
+
+
+def _load_config(config_path: Optional[Path]) -> tuple[Path, HpcConfig]:
+    """Resolve and load config, returning both path and config"""
+    path = _resolve_config_path(config_path)
+    if not path.exists():
+        print(f"Config file not found: {path}")
+        raise typer.Exit(1)
+    manager = ConfigManager()
+    return path, manager.load_config(path)
 
 
 def _get_user_config_path() -> Path:
@@ -62,21 +72,14 @@ def sync(
     config: ConfigOption = None,
 ):
     """Sync files bidirectionally with remote HPC cluster (push then pull)"""
-    config_path = _resolve_config_path(config)
-    if not config_path.exists():
-        print(f"Config file not found: {config_path}")
-        print("Run 'hpc init' first to create a config file.")
-        raise typer.Exit(1)
+    config_path, hpc_config = _load_config(config)
 
     if push and pull:
         print("Error: cannot use --push and --pull together")
         raise typer.Exit(1)
 
-    manager = ConfigManager()
-    config = manager.load_config(config_path)
-
-    ssh = SSHManager(host=config.cluster.host)
-    sync_manager = SyncManager(ssh_manager=ssh, config=config)
+    ssh = SSHManager(host=hpc_config.cluster.host)
+    sync_manager = SyncManager(ssh_manager=ssh, config=hpc_config)
 
     dry_run = not apply
     local_path = Path.cwd()
@@ -108,10 +111,7 @@ def submit(
     config: ConfigOption = None,
 ):
     """Submit a job to Slurm"""
-    config_path = _resolve_config_path(config)
-    if not config_path.exists():
-        print(f"Config file not found: {config_path}")
-        raise typer.Exit(1)
+    config_path, hpc_config = _load_config(config)
 
     if not cmd and not script:
         print("Error: provide a command or --script")
@@ -123,22 +123,19 @@ def submit(
             raise typer.Exit(1)
         cmd = script.read_text()
 
-    manager = ConfigManager()
-    config = manager.load_config(config_path)
-
     # Get git commit if in a git repo
-    ssh = SSHManager(host=config.cluster.host)
-    sync_manager = SyncManager(ssh_manager=ssh, config=config)
+    ssh = SSHManager(host=hpc_config.cluster.host)
+    sync_manager = SyncManager(ssh_manager=ssh, config=hpc_config)
     git_commit = sync_manager.get_git_commit(Path.cwd(), short=True)
 
     if sync_manager.has_uncommitted_changes(Path.cwd()):
         print("Warning: uncommitted changes detected")
 
     runs_dir = Path(".hpc/runs")
-    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
     run = run_manager.create_run(cmd, git_commit=git_commit)
 
-    job_manager = JobManager(ssh_manager=ssh, config=config)
+    job_manager = JobManager(ssh_manager=ssh, config=hpc_config)
 
     job_id = job_manager.submit_run(run)
     run.job_id = job_id
@@ -161,20 +158,14 @@ def submit(
 @app.command()
 def status(id: str = typer.Argument(None), config: ConfigOption = None):
     """Check job status (accepts run_id or job_id)"""
-    config_path = _resolve_config_path(config)
-    if not config_path.exists():
-        print(f"Config file not found: {config_path}")
-        raise typer.Exit(1)
+    config_path, hpc_config = _load_config(config)
 
     if not id:
         print("Please specify a run_id or job_id")
         raise typer.Exit(1)
 
-    manager = ConfigManager()
-    config = manager.load_config(config_path)
-
     runs_dir = Path(".hpc/runs")
-    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
 
     # Try as run_id first, then as job_id
     try:
@@ -192,8 +183,8 @@ def status(id: str = typer.Argument(None), config: ConfigOption = None):
         print(f"Run not found: {id}")
         raise typer.Exit(1)
 
-    ssh = SSHManager(host=config.cluster.host)
-    job_manager = JobManager(ssh_manager=ssh, config=config)
+    ssh = SSHManager(host=hpc_config.cluster.host)
+    job_manager = JobManager(ssh_manager=ssh, config=hpc_config)
 
     job_status = job_manager.get_job_status(job_id)
     print(f"Job {job_id}: {job_status.value}")
@@ -202,16 +193,10 @@ def status(id: str = typer.Argument(None), config: ConfigOption = None):
 @app.command(name="list")
 def list_runs(config: ConfigOption = None):
     """List all runs"""
-    config_path = _resolve_config_path(config)
-    if not config_path.exists():
-        print(f"Config file not found: {config_path}")
-        raise typer.Exit(1)
-
-    manager = ConfigManager()
-    config = manager.load_config(config_path)
+    config_path, hpc_config = _load_config(config)
 
     runs_dir = Path(".hpc/runs")
-    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
     runs = run_manager.list_runs()
 
     if not runs:
@@ -226,16 +211,10 @@ def list_runs(config: ConfigOption = None):
 @app.command(name="job-output")
 def job_output(id: str, config: ConfigOption = None):
     """Show Slurm job output (accepts run_id or job_id)"""
-    config_path = _resolve_config_path(config)
-    if not config_path.exists():
-        print(f"Config file not found: {config_path}")
-        raise typer.Exit(1)
-
-    manager = ConfigManager()
-    config = manager.load_config(config_path)
+    config_path, hpc_config = _load_config(config)
 
     runs_dir = Path(".hpc/runs")
-    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
 
     # Try as run_id first, then as job_id
     try:
@@ -251,8 +230,8 @@ def job_output(id: str, config: ConfigOption = None):
         print(f"Run {run.run_id} has no job ID")
         raise typer.Exit(1)
 
-    ssh = SSHManager(host=config.cluster.host)
-    job_manager = JobManager(ssh_manager=ssh, config=config)
+    ssh = SSHManager(host=hpc_config.cluster.host)
+    job_manager = JobManager(ssh_manager=ssh, config=hpc_config)
 
     output = job_manager.get_job_output(run.run_id, run.job_id)
     print(output, end="")
@@ -261,16 +240,10 @@ def job_output(id: str, config: ConfigOption = None):
 @app.command()
 def wait(id: str, config: ConfigOption = None):
     """Wait for a run to complete (accepts run_id or job_id)"""
-    config_path = _resolve_config_path(config)
-    if not config_path.exists():
-        print(f"Config file not found: {config_path}")
-        raise typer.Exit(1)
-
-    manager = ConfigManager()
-    config = manager.load_config(config_path)
+    config_path, hpc_config = _load_config(config)
 
     runs_dir = Path(".hpc/runs")
-    run_manager = RunManager(config=config, runs_dir=runs_dir)
+    run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
 
     # Try as run_id first, then as job_id
     try:
@@ -286,8 +259,8 @@ def wait(id: str, config: ConfigOption = None):
         print(f"Run {run.run_id} has no job ID")
         raise typer.Exit(1)
 
-    ssh = SSHManager(host=config.cluster.host)
-    job_manager = JobManager(ssh_manager=ssh, config=config)
+    ssh = SSHManager(host=hpc_config.cluster.host)
+    job_manager = JobManager(ssh_manager=ssh, config=hpc_config)
 
     print(f"Waiting for job {run.job_id}...")
     status = job_manager.wait_for_job(run.job_id, adaptive=True)
