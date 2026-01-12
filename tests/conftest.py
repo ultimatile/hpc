@@ -23,10 +23,6 @@ def temp_dir():
 
 
 @pytest.fixture(autouse=True)
-def reset_config_path():
-    """Reset global config path before each test"""
-    from hpc import cli
-
-    cli._config_path = Path("hpc.toml")
-    yield
-    cli._config_path = Path("hpc.toml")
+def reset_env_config(monkeypatch):
+    """Clear HPC_CONFIG env var before each test"""
+    monkeypatch.delenv("HPC_CONFIG", raising=False)
