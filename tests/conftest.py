@@ -20,3 +20,12 @@ def temp_dir():
     temp_path = Path(tempfile.mkdtemp())
     yield temp_path
     shutil.rmtree(temp_path)
+
+
+@pytest.fixture(autouse=True)
+def reset_config_path():
+    """Reset global config path before each test"""
+    from hpc import cli
+    cli._config_path = Path("hpc.toml")
+    yield
+    cli._config_path = Path("hpc.toml")
