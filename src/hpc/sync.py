@@ -71,7 +71,7 @@ class SyncManager:
         self, local_path: Path, dry_run: bool, reverse: bool = False
     ) -> list[str]:
         """Build rsync command with options"""
-        cmd = ["rsync", "-avz"]
+        cmd = ["rsync", "-avz", "-e", "ssh -q"]
 
         if dry_run:
             cmd.append("--dry-run")
