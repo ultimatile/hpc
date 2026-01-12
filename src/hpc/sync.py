@@ -76,8 +76,17 @@ class SyncManager:
         if dry_run:
             cmd.append("--dry-run")
 
+        # Common ignore patterns
         for pattern in self.config.sync.ignore:
             cmd.extend(["--exclude", pattern])
+
+        # Direction-specific ignore patterns
+        if reverse:
+            for pattern in self.config.sync.ignore_pull:
+                cmd.extend(["--exclude", pattern])
+        else:
+            for pattern in self.config.sync.ignore_push:
+                cmd.extend(["--exclude", pattern])
 
         remote = f"{self.config.cluster.host}:{self.config.cluster.workdir}"
         local = str(local_path) + "/"

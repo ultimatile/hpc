@@ -27,6 +27,8 @@ class SyncConfig(BaseModel):
     """Sync configuration"""
 
     ignore: list[str] = []
+    ignore_push: list[str] = []
+    ignore_pull: list[str] = []
 
 
 class SlurmConfig(BaseModel):
@@ -84,6 +86,7 @@ class ConfigManager:
             },
             "sync": {
                 "ignore": ["hpc.toml", ".git"],
+                "ignore_push": [".hpc"],
             },
             "slurm": {
                 "options": {
