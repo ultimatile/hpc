@@ -26,6 +26,7 @@ def temp_dir():
 def reset_config_path():
     """Reset global config path before each test"""
     from hpc import cli
+
     cli._config_path = Path("hpc.toml")
     yield
     cli._config_path = Path("hpc.toml")

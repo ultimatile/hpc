@@ -10,6 +10,10 @@ from typing_extensions import Annotated
 
 from .main import app
 from .config import ConfigManager
+from .ssh import SSHManager
+from .sync import SyncManager
+from .job import JobManager
+from .run import RunManager
 
 # Global config path
 _config_path: Path = Path("hpc.toml")
@@ -21,7 +25,9 @@ def get_config_path() -> Path:
 
 @app.callback()
 def main(
-    config: Annotated[Optional[Path], typer.Option("--config", "-c", help="Config file path")] = None,
+    config: Annotated[
+        Optional[Path], typer.Option("--config", "-c", help="Config file path")
+    ] = None,
 ):
     """HPC workflow automation tool"""
     global _config_path
@@ -29,10 +35,6 @@ def main(
         _config_path = config
     elif env_config := os.environ.get("HPC_CONFIG"):
         _config_path = Path(env_config)
-from .ssh import SSHManager
-from .sync import SyncManager
-from .job import JobManager
-from .run import RunManager
 
 
 def _get_user_config_path() -> Path:
