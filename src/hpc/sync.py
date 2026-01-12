@@ -98,6 +98,14 @@ class SyncManager:
 
         return cmd
 
+    def remote_dir_exists(self) -> bool:
+        """Check if remote workdir exists"""
+        try:
+            self.ssh_manager.run_command("test", ["-d", self.config.cluster.workdir])
+            return True
+        except Exception:
+            return False
+
     def sync_push(self, local_path: Path, dry_run: bool = True) -> SyncResult:
         """Sync local files to remote HPC cluster"""
         cmd = self._build_rsync_command(local_path, dry_run, reverse=False)

@@ -88,6 +88,11 @@ def sync(
     do_push = not pull
     do_pull = not push
 
+    # Skip pull if remote dir doesn't exist yet
+    if do_pull and not sync_manager.remote_dir_exists():
+        print("Remote directory does not exist, skipping pull")
+        do_pull = False
+
     if do_push:
         print("==> Push (local → remote)")
         sync_manager.sync_push(local_path=local_path, dry_run=dry_run)
