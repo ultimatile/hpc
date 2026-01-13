@@ -123,7 +123,8 @@ class JobManager:
         result = self.ssh_manager.run_command(
             "sacct", ["-j", job_id, "--format=State", "--noheader"]
         )
-        status_str = result.stdout.strip().splitlines()[0] if result.stdout else ""
+        lines = result.stdout.strip().splitlines() if result.stdout else []
+        status_str = lines[0].strip().rstrip("+") if lines else ""
 
         status_map = {
             "PENDING": JobStatus.PENDING,
