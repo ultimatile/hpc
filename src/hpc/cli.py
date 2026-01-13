@@ -214,7 +214,13 @@ def list_runs(config: ConfigOption = None):
 
 
 @app.command(name="job-output")
-def job_output(id: str, config: ConfigOption = None):
+def job_output(
+    id: str,
+    error: bool = typer.Option(
+        False, "--error", "-e", help="Show stderr instead of stdout"
+    ),
+    config: ConfigOption = None,
+):
     """Show Slurm job output (accepts run_id or job_id)"""
     config_path, hpc_config = _load_config(config)
 
@@ -238,7 +244,7 @@ def job_output(id: str, config: ConfigOption = None):
     ssh = SSHManager(host=hpc_config.cluster.host)
     job_manager = JobManager(ssh_manager=ssh, config=hpc_config)
 
-    output = job_manager.get_job_output(run.run_id, run.job_id)
+    output = job_manager.get_job_output(run.run_id, run.job_id, error=error)
     print(output, end="")
 
 

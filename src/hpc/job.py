@@ -136,26 +136,14 @@ class JobManager:
         }
         return status_map.get(status_str, JobStatus.FAILED)
 
-    def get_job_output(self, run_id: str, job_id: str) -> str:
+    def get_job_output(self, run_id: str, job_id: str, error: bool = False) -> str:
         """Get job output file contents"""
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
-        output_path = f"{workdir}/.hpc/runs/{run_id}/slurm-{job_id}.out"
+        ext = "err" if error else "out"
+        output_path = f"{workdir}/.hpc/runs/{run_id}/slurm-{job_id}.{ext}"
 
-        # Try the correct path first
-        try:
-            result = self.ssh_manager.run_command("cat", [output_path])
-            return result.stdout
-        except Exception:
-            # Fallback: try the path with literal $HOME (for existing files with the bug)
-            # The actual path is /hs/work0/home/users/hidehiko.kohshiro/$HOME/tci-cudax/...
-            workdir_without_tilde = (
-                self.config.cluster.workdir[2:]
-                if self.config.cluster.workdir.startswith("~/")
-                else self.config.cluster.workdir
-            )
-            fallback_path = f"/hs/work0/home/users/hidehiko.kohshiro/$HOME/{workdir_without_tilde}/.hpc/runs/{run_id}/slurm-{job_id}.out"
-            result = self.ssh_manager.run_command("cat", [fallback_path])
-            return result.stdout
+        result = self.ssh_manager.run_command("cat", [output_path])
+        return result.stdout
 
     def wait_for_job(
         self,
