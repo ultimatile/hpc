@@ -136,14 +136,29 @@ class JobManager:
         }
         return status_map.get(status_str, JobStatus.FAILED)
 
+    def is_job_in_queue(self, job_id: str) -> bool:
+        """Check if job is in Slurm queue (PENDING or RUNNING)"""
+        result = self.ssh_manager.run_command(
+            "squeue", ["-j", job_id, "--noheader", "-o", "%T"]
+        )
+        return bool(result.stdout.strip())
+
     def get_job_output(self, run_id: str, job_id: str, error: bool = False) -> str:
         """Get job output file contents"""
+        from .ssh import SSHError
+
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
         ext = "err" if error else "out"
         output_path = f"{workdir}/.hpc/runs/{run_id}/slurm-{job_id}.{ext}"
 
-        result = self.ssh_manager.run_command("cat", [output_path])
-        return result.stdout
+        try:
+            result = self.ssh_manager.run_command("cat", [output_path])
+            return result.stdout
+        except SSHError:
+            # Output file doesn't exist - check if job is still in queue
+            if self.is_job_in_queue(job_id):
+                return f"Job {job_id} is not yet started (PENDING/RUNNING). Output file not available.\n"
+            raise
 
     def wait_for_job(
         self,
