@@ -119,7 +119,9 @@ class JobManager:
         return result.stdout.strip()
 
     def get_job_status(self, job_id: str) -> JobStatus:
-        """Get job status using sacct"""
+        """Get job status using sacct, fallback to squeue for recent jobs"""
+        from .ssh import SSHError
+
         result = self.ssh_manager.run_command(
             "sacct", ["-j", job_id, "--format=State", "--noheader"]
         )
@@ -134,14 +136,22 @@ class JobManager:
             "CANCELLED": JobStatus.CANCELLED,
             "TIMEOUT": JobStatus.TIMEOUT,
         }
-        return status_map.get(status_str, JobStatus.FAILED)
 
-    def is_job_in_queue(self, job_id: str) -> bool:
-        """Check if job is in Slurm queue (PENDING or RUNNING)"""
-        result = self.ssh_manager.run_command(
-            "squeue", ["-j", job_id, "--noheader", "-o", "%T"]
-        )
-        return bool(result.stdout.strip())
+        if status_str in status_map:
+            return status_map[status_str]
+
+        # sacct may not have info yet for very recent jobs, check squeue
+        try:
+            sq_result = self.ssh_manager.run_command(
+                "squeue", ["-j", job_id, "--noheader", "-o", "%T"]
+            )
+            sq_status = sq_result.stdout.strip()
+            if sq_status in status_map:
+                return status_map[sq_status]
+        except SSHError:
+            pass
+
+        return JobStatus.FAILED
 
     def get_job_output(self, run_id: str, job_id: str, error: bool = False) -> str:
         """Get job output file contents"""
@@ -155,9 +165,12 @@ class JobManager:
             result = self.ssh_manager.run_command("cat", [output_path])
             return result.stdout
         except SSHError:
-            # Output file doesn't exist - check if job is still in queue
-            if self.is_job_in_queue(job_id):
-                return f"Job {job_id} is not yet started (PENDING/RUNNING). Output file not available.\n"
+            # Output file doesn't exist - check job status
+            status = self.get_job_status(job_id)
+            if status in (JobStatus.PENDING, JobStatus.RUNNING):
+                return (
+                    f"Job {job_id} is {status.value}. Output file not yet available.\n"
+                )
             raise
 
     def wait_for_job(
