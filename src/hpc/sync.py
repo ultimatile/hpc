@@ -101,7 +101,15 @@ class SyncManager:
     def remote_dir_exists(self) -> bool:
         """Check if remote workdir exists"""
         try:
-            self.ssh_manager.run_command("test", ["-d", self.config.cluster.workdir])
+            workdir = self.config.cluster.workdir
+            # Resolve ~ to actual home path
+            if workdir.startswith("~/") or workdir == "~":
+                result = self.ssh_manager.run_command("printenv", ["HOME"])
+                home_dir = result.stdout.strip()
+                workdir = (
+                    workdir.replace("~", home_dir, 1) if workdir != "~" else home_dir
+                )
+            self.ssh_manager.run_command("test", ["-d", workdir])
             return True
         except Exception:
             return False
