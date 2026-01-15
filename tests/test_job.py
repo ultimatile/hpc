@@ -85,12 +85,12 @@ class TestJobManagerStatus:
 
 
 class TestJobManagerTemplate:
-    def test_render_slurm_script(self, mock_ssh_manager, sample_config):
+    def test_render_job_script(self, mock_ssh_manager, sample_config):
         manager = JobManager(ssh_manager=mock_ssh_manager, config=sample_config)
         from hpc.run import RunConfig
 
         run = RunConfig(run_id="test_run", cmd="python train.py", status="pending")
-        script = manager._render_slurm_script(run)
+        script = manager._render_job_script(run)
 
         assert "#!/bin/bash" in script
         assert "#SBATCH --partition=gpu" in script

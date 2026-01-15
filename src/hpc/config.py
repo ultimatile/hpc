@@ -14,6 +14,7 @@ class ClusterConfig(BaseModel):
 
     host: str
     workdir: str
+    scheduler: str = "slurm"
 
 
 class EnvConfig(BaseModel):
