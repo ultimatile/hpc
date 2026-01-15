@@ -12,7 +12,6 @@ from .run import RunConfig
 def _resolve_home_path(ssh_manager, path: str) -> str:
     """Resolve ~ to actual home directory path via SSH"""
     if path.startswith("~/") or path == "~":
-        # Get the actual home directory from remote system
         result = ssh_manager.run_command("printenv", ["HOME"])
         home_dir = result.stdout.strip()
         if path == "~":
@@ -42,12 +41,9 @@ SLURM_TEMPLATE = """#!/bin/bash
 
 cd {{ workdir }}
 
-{% for module in modules %}
-module load {{ module }}
+{% for cmd in setup_commands %}
+{{ cmd }}
 {% endfor %}
-{% if conda_env %}
-conda activate {{ conda_env }}
-{% endif %}
 
 {{ cmd }}
 """
@@ -64,18 +60,17 @@ class JobManager:
         """Render Slurm job script from template"""
         template = Template(SLURM_TEMPLATE)
 
-        # Add job-name if not specified
         slurm_options = self.config.slurm.options.copy()
         if "job_name" not in slurm_options and "job-name" not in slurm_options:
             slurm_options["job_name"] = run.run_id
 
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
+        setup_commands = self.config.env.get_setup_commands()
         return template.render(
             run_id=run.run_id,
             slurm_options=slurm_options,
             workdir=workdir,
-            modules=self.config.env.modules,
-            conda_env=self.config.env.conda_env,
+            setup_commands=setup_commands,
             cmd=run.cmd,
         )
 
@@ -100,17 +95,16 @@ class JobManager:
         """Legacy: Submit job without run tracking"""
         template = Template(SLURM_TEMPLATE)
 
-        # Add job-name if not specified
         slurm_options = self.config.slurm.options.copy()
         if "job_name" not in slurm_options and "job-name" not in slurm_options:
             slurm_options["job_name"] = "job"
 
+        setup_commands = self.config.env.get_setup_commands()
         script = template.render(
             run_id="job",
             slurm_options=slurm_options,
             workdir=_resolve_home_path(self.ssh_manager, self.config.cluster.workdir),
-            modules=self.config.env.modules,
-            conda_env=self.config.env.conda_env,
+            setup_commands=setup_commands,
             cmd=cmd,
         )
         result = self.ssh_manager.run_command(

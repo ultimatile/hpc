@@ -24,19 +24,22 @@ class TestClusterConfig:
 
 
 class TestEnvConfig:
-    def test_env_config_with_modules(self):
-        config = EnvConfig(modules=["gcc/12.2.0", "cuda/12.2"])
-        assert config.modules == ["gcc/12.2.0", "cuda/12.2"]
-        assert config.conda_env is None
+    def test_env_config_with_setup(self):
+        config = EnvConfig(setup=[{"module": "gcc/12.2.0"}, {"spack": "cuda@12"}])
+        assert len(config.setup) == 2
 
-    def test_env_config_with_conda(self):
-        config = EnvConfig(conda_env="myenv")
-        assert config.conda_env == "myenv"
+    def test_env_config_with_string_command(self):
+        config = EnvConfig(setup=["my_setup"])
+        assert config.setup == ["my_setup"]
 
     def test_env_config_defaults(self):
         config = EnvConfig()
-        assert config.modules == []
-        assert config.conda_env is None
+        assert config.setup == []
+
+    def test_env_config_rejects_shell_special(self):
+        config = EnvConfig(setup=[{"module": "gcc; rm -rf ~"}])
+        with pytest.raises(Exception):
+            config.get_setup_commands()
 
 
 class TestSlurmConfig:
@@ -56,7 +59,7 @@ class TestHpcConfig:
     def test_hpc_config_combines_all(self):
         config = HpcConfig(
             cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj"),
-            env=EnvConfig(modules=["gcc/12.2.0"]),
+            env=EnvConfig(setup=[{"module": "gcc/12.2.0"}]),
             slurm=SlurmConfig(options={"partition": "gpu"}),
         )
         assert config.cluster.host == "myhpc"
@@ -72,8 +75,10 @@ host = "myhpc"
 workdir = "/scratch/user/proj"
 
 [env]
-modules = ["gcc/12.2.0", "cuda/12.2"]
-conda_env = "myenv"
+setup = [
+    { module = "gcc/12.2.0" },
+    { spack = "cuda@12" },
+]
 
 [slurm.options]
 partition = "gpu"
@@ -86,8 +91,7 @@ gpus = 1
 
         assert config.cluster.host == "myhpc"
         assert config.cluster.workdir == "/scratch/user/proj"
-        assert config.env.modules == ["gcc/12.2.0", "cuda/12.2"]
-        assert config.env.conda_env == "myenv"
+        assert len(config.env.setup) == 2
         assert config.slurm.options["partition"] == "gpu"
         assert config.slurm.options["time"] == "02:00:00"
         assert config.slurm.options["mem"] == "32G"

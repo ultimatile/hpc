@@ -99,8 +99,13 @@ host = "myhpc"                    # SSH host (from ~/.ssh/config)
 workdir = "/scratch/user/proj"    # Remote working directory; all codes and data will be synced here
 
 [env]
-modules = ["gcc/12.2.0", "cuda/12.2"]  # Modules to load
-conda_env = "myenv"                    # Conda environment (optional, runs `conda activate myenv` before job)
+modules = ["gcc/12.2.0", "cuda/12.2"]  # Modules to load (shorthand for module load)
+spack = ["python@3.11"]                # Spack packages to load (shorthand for spack load)
+setup = [                              # Additional setup commands
+    {source = "/path/to/venv/bin/activate"},
+    {export = ["VAR=value"]},          # {command = [args...]} format
+    "some_cmd",                        # String: command without args
+]
 
 [sync]
 ignore = ["hpc.toml", ".git"]  # Patterns to exclude from sync
@@ -111,6 +116,34 @@ time = "02:00:00"      # Time limit
 mem = "32G"            # Memory
 gpus = 1               # Number of GPUs (optional)
 ```
+
+### Environment Setup
+
+Commands are executed in this order: `modules` → `spack` → `setup`.
+
+`modules` and `spack` are shorthand syntax:
+
+- `modules = ["gcc/12.2.0"]` expands to `module load gcc/12.2.0`
+- `spack = ["python@3.11"]` expands to `spack load python@3.11`
+
+`setup` accepts:
+
+- String: command without args (e.g., `"some_cmd"`)
+- Dict: `{command = args}` format (e.g., `{export = ["VAR=value"]}` → `export VAR=value`)
+- Special commands `module` and `spack` in dict format expand to `module load` / `spack load`
+
+If you need a different execution order, put everything in `setup`:
+
+```toml
+[env]
+setup = [
+    {spack = "python@3.11"},
+    {module = "gcc/12.2.0"},
+    {source = "/path/to/venv/bin/activate"},
+]
+```
+
+Shell special characters (`` ;|&`$<>\'"\n `` and space) are prohibited in arguments for security.
 
 `$XDG_CONFIG_HOME/hpc/config.toml` (default: `~/.config/hpc/config.toml`) will be copied as `hpc.toml` if it exists when running `hpc init`.
 

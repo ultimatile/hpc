@@ -1,12 +1,47 @@
 """Configuration management"""
 
+import shlex
 import sys
 import tomllib
 from pathlib import Path
-from typing import Optional
 
 import tomli_w
 from pydantic import BaseModel
+
+# str: command without args, dict: {cmd: args}
+SetupItem = str | dict[str, str | list[str]]
+
+SHELL_SPECIAL = set(";|&`$<>\\'\"\n ")
+
+
+def _validate_arg(arg: str) -> None:
+    if bad := SHELL_SPECIAL & set(arg):
+        raise ValueError(f"Shell special characters not allowed: {bad}")
+
+
+def build_setup_commands(setup: list[SetupItem]) -> list[str]:
+    """Build shell commands from setup items"""
+    cmds = []
+    for item in setup:
+        if isinstance(item, str):
+            _validate_arg(item)
+            cmds.append(shlex.quote(item))
+        else:
+            cmd, args = next(iter(item.items()))
+            _validate_arg(cmd)
+            args_list = [args] if isinstance(args, str) else args
+            args_list = [a for a in args_list if a]
+            for a in args_list:
+                _validate_arg(a)
+            quoted_args = " ".join(shlex.quote(a) for a in args_list)
+            if cmd == "module":
+                cmds.append(f"module load {quoted_args}")
+            elif cmd == "spack":
+                cmds.append(f"spack load {quoted_args}")
+            else:
+                parts = [shlex.quote(cmd)] + [shlex.quote(a) for a in args_list]
+                cmds.append(" ".join(parts))
+    return cmds
 
 
 class ClusterConfig(BaseModel):
@@ -20,7 +55,18 @@ class EnvConfig(BaseModel):
     """Environment configuration"""
 
     modules: list[str] = []
-    conda_env: Optional[str] = None
+    spack: list[str] = []
+    setup: list[SetupItem] = []
+
+    def get_setup_commands(self) -> list[str]:
+        """Build commands: modules → spack → setup"""
+        items: list[SetupItem] = []
+        for m in self.modules:
+            items.append({"module": m})
+        for s in self.spack:
+            items.append({"spack": s})
+        items.extend(self.setup)
+        return build_setup_commands(items)
 
 
 class SyncConfig(BaseModel):
