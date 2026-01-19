@@ -4,6 +4,7 @@ import shlex
 import sys
 import tomllib
 from pathlib import Path
+from typing import Literal
 
 import tomli_w
 from pydantic import BaseModel
@@ -75,6 +76,7 @@ class SyncConfig(BaseModel):
     ignore: list[str] = []
     ignore_push: list[str] = []
     ignore_pull: list[str] = []
+    compare: Literal["checksum", "timestamp"] = "checksum"
 
 
 class SlurmConfig(BaseModel):

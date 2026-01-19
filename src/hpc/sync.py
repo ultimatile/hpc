@@ -73,9 +73,13 @@ class SyncManager:
         dry_run: bool,
         reverse: bool = False,
         extra_excludes: list[str] | None = None,
+        use_checksum: bool = True,
     ) -> list[str]:
         """Build rsync command with options"""
         cmd = ["rsync", "-avz", "-e", "ssh -q"]
+
+        if use_checksum:
+            cmd.append("--checksum")
 
         if dry_run:
             cmd.append("--dry-run")
@@ -107,9 +111,13 @@ class SyncManager:
 
         return cmd
 
-    def _get_push_targets(self, local_path: Path) -> list[str]:
+    def _get_push_targets(
+        self, local_path: Path, use_checksum: bool = True
+    ) -> list[str]:
         """Get list of files/dirs that would be pushed (dry-run)"""
-        cmd = self._build_rsync_command(local_path, dry_run=True, reverse=False)
+        cmd = self._build_rsync_command(
+            local_path, dry_run=True, reverse=False, use_checksum=use_checksum
+        )
         cmd.append("--itemize-changes")
         result = subprocess.run(cmd, capture_output=True, text=True)
         targets = []
@@ -139,9 +147,13 @@ class SyncManager:
         except Exception:
             return False
 
-    def sync_push(self, local_path: Path, dry_run: bool = True) -> SyncResult:
+    def sync_push(
+        self, local_path: Path, dry_run: bool = True, use_checksum: bool = True
+    ) -> SyncResult:
         """Sync local files to remote HPC cluster"""
-        cmd = self._build_rsync_command(local_path, dry_run, reverse=False)
+        cmd = self._build_rsync_command(
+            local_path, dry_run, reverse=False, use_checksum=use_checksum
+        )
         result = subprocess.run(cmd)
         return SyncResult(success=result.returncode == 0, dry_run=dry_run)
 
@@ -150,17 +162,26 @@ class SyncManager:
         local_path: Path,
         dry_run: bool = True,
         exclude_push_targets: bool = False,
+        use_checksum: bool = True,
     ) -> SyncResult:
         """Sync remote files to local"""
         extra_excludes = (
-            self._get_push_targets(local_path) if exclude_push_targets else None
+            self._get_push_targets(local_path, use_checksum)
+            if exclude_push_targets
+            else None
         )
         cmd = self._build_rsync_command(
-            local_path, dry_run, reverse=True, extra_excludes=extra_excludes
+            local_path,
+            dry_run,
+            reverse=True,
+            extra_excludes=extra_excludes,
+            use_checksum=use_checksum,
         )
         result = subprocess.run(cmd)
         return SyncResult(success=result.returncode == 0, dry_run=dry_run)
 
-    def sync_inputs(self, local_path: Path, dry_run: bool = True) -> SyncResult:
+    def sync_inputs(
+        self, local_path: Path, dry_run: bool = True, use_checksum: bool = True
+    ) -> SyncResult:
         """Sync local files to remote HPC cluster (alias for sync_push)"""
-        return self.sync_push(local_path, dry_run)
+        return self.sync_push(local_path, dry_run, use_checksum)

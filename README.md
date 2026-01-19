@@ -109,6 +109,7 @@ setup = [                              # Additional setup commands
 
 [sync]
 ignore = ["hpc.toml", ".git"]  # Patterns to exclude from sync
+compare = "checksum"           # File comparison: "checksum" (content-based, default) or "timestamp"
 
 [slurm]
 partition = "gpu"      # Slurm partition

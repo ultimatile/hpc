@@ -83,6 +83,7 @@ def sync(
 
     dry_run = not apply
     local_path = Path.cwd()
+    use_checksum = hpc_config.sync.compare == "checksum"
 
     # Default: bidirectional (push then pull)
     do_push = not pull
@@ -95,13 +96,16 @@ def sync(
 
     if do_push:
         print("==> Push (local → remote)")
-        sync_manager.sync_push(local_path=local_path, dry_run=dry_run)
+        sync_manager.sync_push(
+            local_path=local_path, dry_run=dry_run, use_checksum=use_checksum
+        )
     if do_pull:
         print("==> Pull (remote → local)")
         sync_manager.sync_pull(
             local_path=local_path,
             dry_run=dry_run,
             exclude_push_targets=dry_run and do_push,
+            use_checksum=use_checksum,
         )
 
     if dry_run:
