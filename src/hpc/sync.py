@@ -68,7 +68,11 @@ class SyncManager:
             return False
 
     def _build_rsync_command(
-        self, local_path: Path, dry_run: bool, reverse: bool = False
+        self,
+        local_path: Path,
+        dry_run: bool,
+        reverse: bool = False,
+        extra_excludes: list[str] | None = None,
     ) -> list[str]:
         """Build rsync command with options"""
         cmd = ["rsync", "-avz", "-e", "ssh -q"]
@@ -88,6 +92,11 @@ class SyncManager:
             for pattern in self.config.sync.ignore_push:
                 cmd.extend(["--exclude", pattern])
 
+        # Extra excludes (e.g., push targets excluded from pull)
+        if extra_excludes:
+            for pattern in extra_excludes:
+                cmd.extend(["--exclude", pattern])
+
         remote = f"{self.config.cluster.host}:{self.config.cluster.workdir}"
         local = str(local_path) + "/"
 
@@ -97,6 +106,22 @@ class SyncManager:
             cmd.extend([local, remote])
 
         return cmd
+
+    def _get_push_targets(self, local_path: Path) -> list[str]:
+        """Get list of files/dirs that would be pushed (dry-run)"""
+        cmd = self._build_rsync_command(local_path, dry_run=True, reverse=False)
+        cmd.append("--itemize-changes")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        targets = []
+        for line in result.stdout.splitlines():
+            if not line:
+                continue
+            # <f = file sent, cd = directory created, .d = directory updated
+            if line[0] == "<" or line.startswith("cd") or line.startswith(".d"):
+                parts = line.split(None, 1)
+                if len(parts) == 2:
+                    targets.append(parts[1])
+        return targets
 
     def remote_dir_exists(self) -> bool:
         """Check if remote workdir exists"""
@@ -120,9 +145,19 @@ class SyncManager:
         result = subprocess.run(cmd)
         return SyncResult(success=result.returncode == 0, dry_run=dry_run)
 
-    def sync_pull(self, local_path: Path, dry_run: bool = True) -> SyncResult:
+    def sync_pull(
+        self,
+        local_path: Path,
+        dry_run: bool = True,
+        exclude_push_targets: bool = False,
+    ) -> SyncResult:
         """Sync remote files to local"""
-        cmd = self._build_rsync_command(local_path, dry_run, reverse=True)
+        extra_excludes = (
+            self._get_push_targets(local_path) if exclude_push_targets else None
+        )
+        cmd = self._build_rsync_command(
+            local_path, dry_run, reverse=True, extra_excludes=extra_excludes
+        )
         result = subprocess.run(cmd)
         return SyncResult(success=result.returncode == 0, dry_run=dry_run)
 

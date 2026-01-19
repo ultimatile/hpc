@@ -98,7 +98,11 @@ def sync(
         sync_manager.sync_push(local_path=local_path, dry_run=dry_run)
     if do_pull:
         print("==> Pull (remote → local)")
-        sync_manager.sync_pull(local_path=local_path, dry_run=dry_run)
+        sync_manager.sync_pull(
+            local_path=local_path,
+            dry_run=dry_run,
+            exclude_push_targets=dry_run and do_push,
+        )
 
     if dry_run:
         print("Dry run completed. Use --apply to sync files.")
