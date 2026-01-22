@@ -155,6 +155,16 @@ Shell special characters (`` ;|&`$<>\'"\n `` and space) are prohibited in argume
 - rsync
 - Slurm on the remote cluster
 
+### rsync Note
+
+rsync from https://rsync.samba.org/ is recommended over macOS's built-in openrsync. When using checksum-based comparison (`compare = "checksum"`, default), openrsync has a bug where files with sizes that are exact multiples of 64 bytes are always detected as changed, even when identical. This is due to a protocol 29 checksum boundary issue. Confirmed with macOS 15.7's openrsync (protocol version 29, rsync version 2.6.9 compatible). If concerned, use `[sync] compare = "timestamp"` instead.
+
+On macOS, install rsync via Homebrew:
+
+```bash
+brew install rsync
+```
+
 ## Development
 
 ```bash
