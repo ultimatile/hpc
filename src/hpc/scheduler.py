@@ -1,5 +1,6 @@
 """Scheduler abstraction for Slurm and PJM"""
 
+import re
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -72,10 +73,16 @@ class PJM(Scheduler):
         return ["pjsub"]
 
     def parse_job_id(self, output: str) -> str:
-        # pjsub output: "[INFO] PJM 0000 pjsub Job XXXXXXXX submitted."
-        for word in output.split():
-            if word.isdigit():
-                return word
+        # pjsub output example: "[INFO] PJM 0000 pjsub Job XXXXXXXX submitted."
+        match = re.search(r"\bJob\s+(\d+)\b", output, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+        # Fallback: use the last numeric token to avoid picking status code "0000".
+        numbers = re.findall(r"\d+", output)
+        if numbers:
+            return numbers[-1]
+
         return output.strip()
 
     def status_cmd(self, job_id: str) -> list[str]:
