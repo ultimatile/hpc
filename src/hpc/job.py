@@ -48,7 +48,9 @@ class JobManager:
         self.config = config
         self.scheduler = get_scheduler(config.cluster.scheduler)
 
-    def _build_directives(self, options: dict, job_name: str | None = None) -> list[str]:
+    def _build_directives(
+        self, options: dict, job_name: str | None = None
+    ) -> list[str]:
         """Build scheduler directives from options"""
         prefix = self.scheduler.directive_prefix()
         directives = []
@@ -105,7 +107,9 @@ class JobManager:
             cmd=cmd,
         )
         submit_cmd = self.scheduler.submit_cmd()
-        result = self.ssh_manager.run_command(submit_cmd[0], submit_cmd[1:], input_text=script)
+        result = self.ssh_manager.run_command(
+            submit_cmd[0], submit_cmd[1:], input_text=script
+        )
         return self.scheduler.parse_job_id(result.stdout)
 
     def get_job_status(self, job_id: str) -> JobStatus:
@@ -128,7 +132,9 @@ class JobManager:
         except SSHError:
             status = self.get_job_status(job_id)
             if status in (JobStatus.PENDING, JobStatus.RUNNING):
-                return f"Job {job_id} is {status.value}. Output file not yet available.\n"
+                return (
+                    f"Job {job_id} is {status.value}. Output file not yet available.\n"
+                )
             raise
 
     def wait_for_job(
