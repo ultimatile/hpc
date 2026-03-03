@@ -49,23 +49,41 @@ class JobManager:
         self.scheduler = get_scheduler(config.cluster.scheduler)
 
     def _build_directives(
-        self, options: dict, job_name: str | None = None
+        self, options: dict | list, job_name: str | None = None
     ) -> list[str]:
         """Build scheduler directives from options"""
-        prefix = self.scheduler.directive_prefix()
-        directives = []
-        opts = options.copy()
-        if job_name and "job_name" not in opts and "job-name" not in opts:
-            opts["job_name"] = job_name
-        for key, value in opts.items():
-            directives.append(f"{prefix} --{key.replace('_', '-')}={value}")
-        return directives
+        if isinstance(options, list):
+            # PJM format: [["-L", "node=12"], ["-s"]]
+            directives = []
+            for opt in options:
+                if not opt:
+                    continue
+                if len(opt) == 1:
+                    directives.append(f"#PJM {opt[0]}")
+                else:
+                    directives.append(f"#PJM {opt[0]} {opt[1]}")
+            return directives
+        else:
+            # Slurm format: {"partition": "gpu", ...}
+            prefix = self.scheduler.directive_prefix()
+            directives = []
+            opts = options.copy()
+            if job_name and "job_name" not in opts and "job-name" not in opts:
+                opts["job_name"] = job_name
+            for key, value in opts.items():
+                directives.append(f"{prefix} --{key.replace('_', '-')}={value}")
+            return directives
 
     def _render_job_script(self, run: RunConfig) -> str:
         """Render job script from template"""
         template = Template(JOB_TEMPLATE)
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
-        directives = self._build_directives(self.config.slurm.options, run.run_id)
+        options = (
+            self.config.pjm.options
+            if self.config.cluster.scheduler == "pjm"
+            else self.config.slurm.options
+        )
+        directives = self._build_directives(options, run.run_id)
         return template.render(
             run_id=run.run_id,
             directives=directives,
@@ -95,7 +113,12 @@ class JobManager:
         """Legacy: Submit job without run tracking"""
         template = Template(JOB_TEMPLATE)
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
-        directives = self._build_directives(self.config.slurm.options, "job")
+        options = (
+            self.config.pjm.options
+            if self.config.cluster.scheduler == "pjm"
+            else self.config.slurm.options
+        )
+        directives = self._build_directives(options, "job")
 
         script = template.render(
             run_id="job",

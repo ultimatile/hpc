@@ -38,16 +38,23 @@ class SlurmConfig(BaseModel):
     options: dict[str, str | int] = {}
 
 
+class PjmConfig(BaseModel):
+    """PJM job configuration"""
+
+    options: list[list[str]] = []
+
+
 class HpcConfig(BaseModel):
     """Combined HPC configuration"""
 
     cluster: ClusterConfig
     env: EnvConfig
     sync: SyncConfig = SyncConfig()
-    slurm: SlurmConfig
+    slurm: SlurmConfig = SlurmConfig()
+    pjm: PjmConfig = PjmConfig()
 
 
-KNOWN_SECTIONS = {"cluster", "env", "sync", "slurm"}
+KNOWN_SECTIONS = {"cluster", "env", "sync", "slurm", "pjm"}
 
 
 class ConfigManager:
@@ -73,6 +80,7 @@ class ConfigManager:
             env=EnvConfig(**data.get("env", {})),
             sync=SyncConfig(**data.get("sync", {})),
             slurm=SlurmConfig(options=data.get("slurm", {}).get("options", {})),
+            pjm=PjmConfig(options=data.get("pjm", {}).get("options", [])),
         )
 
     def generate_template(self, path: Path) -> None:
