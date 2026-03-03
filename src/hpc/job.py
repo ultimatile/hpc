@@ -1,12 +1,11 @@
-"""Slurm job management"""
-
-from enum import Enum
+"""Job management for HPC schedulers"""
 
 from jinja2 import Template
 
 from .config import HpcConfig
 from .ssh import SSHManager
 from .run import RunConfig
+from .scheduler import JobStatus, get_scheduler
 
 
 def _resolve_home_path(ssh_manager, path: str) -> str:
@@ -21,23 +20,12 @@ def _resolve_home_path(ssh_manager, path: str) -> str:
     return path
 
 
-class JobStatus(Enum):
-    """Slurm job status"""
-
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
-    TIMEOUT = "TIMEOUT"
-
-
-SLURM_TEMPLATE = """#!/bin/bash
-{% for key, value in slurm_options.items() %}
-#SBATCH --{{ key.replace('_', '-') }}={{ value }}
+JOB_TEMPLATE = """#!/bin/bash
+{% for directive in directives %}
+{{ directive }}
 {% endfor %}
-#SBATCH --output={{ workdir }}/.hpc/runs/{{ run_id }}/slurm-%j.out
-#SBATCH --error={{ workdir }}/.hpc/runs/{{ run_id }}/slurm-%j.err
+{{ scheduler.directive_prefix().split()[0] }} --output={{ workdir }}/.hpc/runs/{{ run_id }}/job-%j.out
+{{ scheduler.directive_prefix().split()[0] }} --error={{ workdir }}/.hpc/runs/{{ run_id }}/job-%j.err
 
 cd {{ workdir }}
 
@@ -50,102 +38,105 @@ cd {{ workdir }}
 
 
 class JobManager:
-    """Slurm job submission and monitoring"""
+    """Job submission and monitoring"""
 
     def __init__(self, ssh_manager: SSHManager, config: HpcConfig):
         self.ssh_manager = ssh_manager
         self.config = config
+        self.scheduler = get_scheduler(config.cluster.scheduler)
 
-    def _render_slurm_script(self, run: RunConfig) -> str:
-        """Render Slurm job script from template"""
-        template = Template(SLURM_TEMPLATE)
+    def _build_directives(
+        self, options: dict | list, job_name: str | None = None
+    ) -> list[str]:
+        """Build scheduler directives from options"""
+        if isinstance(options, list):
+            # PJM format: [["-L", "node=12"], ["-s"]]
+            directives = []
+            for opt in options:
+                if not opt:
+                    continue
+                if len(opt) == 1:
+                    directives.append(f"#PJM {opt[0]}")
+                else:
+                    directives.append(f"#PJM {opt[0]} {opt[1]}")
+            return directives
+        else:
+            # Slurm format: {"partition": "gpu", ...}
+            prefix = self.scheduler.directive_prefix()
+            directives = []
+            opts = options.copy()
+            if job_name and "job_name" not in opts and "job-name" not in opts:
+                opts["job_name"] = job_name
+            for key, value in opts.items():
+                directives.append(f"{prefix} --{key.replace('_', '-')}={value}")
+            return directives
 
-        slurm_options = self.config.slurm.options.copy()
-        if "job_name" not in slurm_options and "job-name" not in slurm_options:
-            slurm_options["job_name"] = run.run_id
-
+    def _render_job_script(self, run: RunConfig) -> str:
+        """Render job script from template"""
+        template = Template(JOB_TEMPLATE)
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
+        options = (
+            self.config.pjm.options
+            if self.config.cluster.scheduler == "pjm"
+            else self.config.slurm.options
+        )
+        directives = self._build_directives(options, run.run_id)
         setup_commands = self.config.env.get_setup_commands()
         return template.render(
             run_id=run.run_id,
-            slurm_options=slurm_options,
+            directives=directives,
+            scheduler=self.scheduler,
             workdir=workdir,
             setup_commands=setup_commands,
             cmd=run.cmd,
         )
 
     def submit_run(self, run: RunConfig) -> str:
-        """Submit run to Slurm and return job ID"""
-        script = self._render_slurm_script(run)
+        """Submit run and return job ID"""
+        script = self._render_job_script(run)
 
-        # Create run directory on remote
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
         run_dir = f"{workdir}/.hpc/runs/{run.run_id}"
         self.ssh_manager.run_command("mkdir", ["-p", run_dir])
 
-        # Write script to remote
         script_path = f"{run_dir}/job.sh"
         self.ssh_manager.run_command("tee", [script_path], input_text=script)
 
-        # Submit with sbatch --parsable
-        result = self.ssh_manager.run_command("sbatch", ["--parsable", script_path])
-        return result.stdout.strip()
+        cmd = self.scheduler.submit_cmd()
+        result = self.ssh_manager.run_command(cmd[0], cmd[1:] + [script_path])
+        return self.scheduler.parse_job_id(result.stdout)
 
     def submit_job(self, cmd: str) -> str:
         """Legacy: Submit job without run tracking"""
-        template = Template(SLURM_TEMPLATE)
-
-        slurm_options = self.config.slurm.options.copy()
-        if "job_name" not in slurm_options and "job-name" not in slurm_options:
-            slurm_options["job_name"] = "job"
+        template = Template(JOB_TEMPLATE)
+        workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
+        options = (
+            self.config.pjm.options
+            if self.config.cluster.scheduler == "pjm"
+            else self.config.slurm.options
+        )
+        directives = self._build_directives(options, "job")
 
         setup_commands = self.config.env.get_setup_commands()
         script = template.render(
             run_id="job",
-            slurm_options=slurm_options,
-            workdir=_resolve_home_path(self.ssh_manager, self.config.cluster.workdir),
+            directives=directives,
+            scheduler=self.scheduler,
+            workdir=workdir,
             setup_commands=setup_commands,
             cmd=cmd,
         )
+        submit_cmd = self.scheduler.submit_cmd()
         result = self.ssh_manager.run_command(
-            "sbatch", ["--parsable"], input_text=script
+            submit_cmd[0], submit_cmd[1:], input_text=script
         )
-        return result.stdout.strip()
+        return self.scheduler.parse_job_id(result.stdout)
 
     def get_job_status(self, job_id: str) -> JobStatus:
-        """Get job status using sacct, fallback to squeue for recent jobs"""
-        from .ssh import SSHError
-
-        result = self.ssh_manager.run_command(
-            "sacct", ["-j", job_id, "--format=State", "--noheader"]
-        )
-        lines = result.stdout.strip().splitlines() if result.stdout else []
-        status_str = lines[0].strip().rstrip("+") if lines else ""
-
-        status_map = {
-            "PENDING": JobStatus.PENDING,
-            "RUNNING": JobStatus.RUNNING,
-            "COMPLETED": JobStatus.COMPLETED,
-            "FAILED": JobStatus.FAILED,
-            "CANCELLED": JobStatus.CANCELLED,
-            "TIMEOUT": JobStatus.TIMEOUT,
-        }
-
-        if status_str in status_map:
-            return status_map[status_str]
-
-        # sacct may not have info yet for very recent jobs, check squeue
-        try:
-            sq_result = self.ssh_manager.run_command(
-                "squeue", ["-j", job_id, "--noheader", "-o", "%T"]
-            )
-            sq_status = sq_result.stdout.strip()
-            if sq_status in status_map:
-                return status_map[sq_status]
-        except SSHError:
-            pass
-
-        return JobStatus.FAILED
+        """Get job status"""
+        cmd = self.scheduler.status_cmd(job_id)
+        result = self.ssh_manager.run_command(cmd[0], cmd[1:])
+        return self.scheduler.parse_status(result.stdout)
 
     def get_job_output(self, run_id: str, job_id: str, error: bool = False) -> str:
         """Get job output file contents"""
@@ -153,13 +144,12 @@ class JobManager:
 
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
         ext = "err" if error else "out"
-        output_path = f"{workdir}/.hpc/runs/{run_id}/slurm-{job_id}.{ext}"
+        output_path = f"{workdir}/.hpc/runs/{run_id}/job-{job_id}.{ext}"
 
         try:
             result = self.ssh_manager.run_command("cat", [output_path])
             return result.stdout
         except SSHError:
-            # Output file doesn't exist - check job status
             status = self.get_job_status(job_id)
             if status in (JobStatus.PENDING, JobStatus.RUNNING):
                 return (
