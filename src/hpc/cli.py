@@ -123,7 +123,7 @@ def submit(
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for job completion"),
     config: ConfigOption = None,
 ):
-    """Submit a job to Slurm"""
+    """Submit a job to the scheduler"""
     config_path, hpc_config = _load_config(config)
 
     if not cmd and not script:
@@ -229,7 +229,7 @@ def job_output(
     ),
     config: ConfigOption = None,
 ):
-    """Show Slurm job output (accepts run_id or job_id)"""
+    """Show job output (accepts run_id or job_id)"""
     config_path, hpc_config = _load_config(config)
 
     runs_dir = Path(".hpc/runs")

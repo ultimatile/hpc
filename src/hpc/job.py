@@ -168,7 +168,7 @@ class JobManager:
         """Wait for job to complete, polling at interval
 
         Args:
-            job_id: Slurm job ID
+            job_id: Job ID
             interval: Initial polling interval in seconds
             adaptive: If True, increase interval geometrically
             max_interval: Maximum polling interval (default 1 hour)
