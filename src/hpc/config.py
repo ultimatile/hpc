@@ -102,6 +102,19 @@ class HpcConfig(BaseModel):
     pjm: PjmConfig = PjmConfig()
 
 
+def find_config(filename: str = "hpc.toml") -> Path | None:
+    """Walk up from CWD to find config file, like git finds .git"""
+    current = Path.cwd().resolve()
+    while True:
+        candidate = current / filename
+        if candidate.is_file():
+            return candidate
+        parent = current.parent
+        if parent == current:
+            return None
+        current = parent
+
+
 KNOWN_SECTIONS = {"cluster", "env", "sync", "slurm", "pjm"}
 
 

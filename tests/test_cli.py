@@ -1,5 +1,7 @@
 """CLI command tests"""
 
+from unittest.mock import patch, MagicMock
+
 from hpc.main import app
 from hpc import cli  # noqa: F401 - register commands
 
@@ -97,3 +99,44 @@ def test_config_option_overrides_env(cli_runner, temp_dir, monkeypatch):
     monkeypatch.setenv("HPC_CONFIG", "nonexistent.toml")
     result = cli_runner.invoke(app, ["--config", str(opt_config), "sync"])
     assert "Config file not found" not in result.stdout
+
+
+def test_walk_up_finds_config(cli_runner, temp_dir, monkeypatch):
+    """Walk-up discovery finds hpc.toml in parent directory"""
+    (temp_dir / "hpc.toml").write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    child = temp_dir / "runs" / "bench1"
+    child.mkdir(parents=True)
+    monkeypatch.chdir(child)
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = cli_runner.invoke(app, ["sync"])
+        assert result.exit_code == 0
+        assert "Config file not found" not in result.stdout
+
+
+def test_sync_uses_project_root(cli_runner, temp_dir, monkeypatch):
+    """sync uses project root (hpc.toml location) as local path, not CWD"""
+    (temp_dir / "hpc.toml").write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    child = temp_dir / "runs" / "bench1"
+    child.mkdir(parents=True)
+    monkeypatch.chdir(child)
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        cli_runner.invoke(app, ["sync"])
+        # rsync should use project root, not the child directory
+        call_args = mock_run.call_args[0][0]
+        local_arg = [a for a in call_args if str(temp_dir.resolve()) in str(a)]
+        assert local_arg
+        # Should NOT contain the child subpath as the source
+        assert not any(str(child) in str(a) for a in call_args)
+
+
+def test_init_does_not_walk_up(cli_runner, temp_dir, monkeypatch):
+    """init creates hpc.toml in CWD, does not walk up"""
+    (temp_dir / "hpc.toml").write_text("[cluster]\nhost = 'test'\nworkdir = '/tmp'")
+    child = temp_dir / "subdir"
+    child.mkdir()
+    monkeypatch.chdir(child)
+    result = cli_runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+    assert (child / "hpc.toml").exists()

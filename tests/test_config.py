@@ -9,6 +9,7 @@ from hpc.config import (
     SlurmConfig,
     HpcConfig,
     ConfigManager,
+    find_config,
 )
 
 
@@ -119,3 +120,24 @@ gpus = 1
         assert "[cluster]" in content
         assert "[env]" in content
         assert "[slurm.options]" in content
+
+
+class TestFindConfig:
+    def test_find_config_in_cwd(self, temp_dir, monkeypatch):
+        (temp_dir / "hpc.toml").write_text("[cluster]\nhost='x'\nworkdir='/'")
+        monkeypatch.chdir(temp_dir)
+        result = find_config("hpc.toml")
+        assert result == (temp_dir / "hpc.toml").resolve()
+
+    def test_find_config_in_parent(self, temp_dir, monkeypatch):
+        (temp_dir / "hpc.toml").write_text("[cluster]\nhost='x'\nworkdir='/'")
+        child = temp_dir / "runs" / "bench1"
+        child.mkdir(parents=True)
+        monkeypatch.chdir(child)
+        result = find_config("hpc.toml")
+        assert result == (temp_dir / "hpc.toml").resolve()
+
+    def test_find_config_returns_none(self, temp_dir, monkeypatch):
+        monkeypatch.chdir(temp_dir)
+        result = find_config("hpc.toml")
+        assert result is None

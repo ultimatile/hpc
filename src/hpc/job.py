@@ -1,5 +1,7 @@
 """Job management for HPC schedulers"""
 
+from pathlib import Path
+
 from jinja2 import Template
 
 from .config import HpcConfig
@@ -27,7 +29,7 @@ JOB_TEMPLATE = """#!/bin/bash
 {{ scheduler.directive_prefix().split()[0] }} --output={{ workdir }}/.hpc/runs/{{ run_id }}/job-%j.out
 {{ scheduler.directive_prefix().split()[0] }} --error={{ workdir }}/.hpc/runs/{{ run_id }}/job-%j.err
 
-cd {{ workdir }}
+cd {{ job_workdir }}
 
 {% for cmd in setup_commands %}
 {{ cmd }}
@@ -71,10 +73,13 @@ class JobManager:
                 directives.append(f"{prefix} --{key.replace('_', '-')}={value}")
             return directives
 
-    def _render_job_script(self, run: RunConfig) -> str:
+    def _render_job_script(
+        self, run: RunConfig, cwd_relative: Path = Path(".")
+    ) -> str:
         """Render job script from template"""
         template = Template(JOB_TEMPLATE)
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
+        job_workdir = str(Path(workdir) / cwd_relative)
         options = (
             self.config.pjm.options
             if self.config.cluster.scheduler == "pjm"
@@ -87,13 +92,14 @@ class JobManager:
             directives=directives,
             scheduler=self.scheduler,
             workdir=workdir,
+            job_workdir=job_workdir,
             setup_commands=setup_commands,
             cmd=run.cmd,
         )
 
-    def submit_run(self, run: RunConfig) -> str:
+    def submit_run(self, run: RunConfig, cwd_relative: Path = Path(".")) -> str:
         """Submit run and return job ID"""
-        script = self._render_job_script(run)
+        script = self._render_job_script(run, cwd_relative=cwd_relative)
 
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)
         run_dir = f"{workdir}/.hpc/runs/{run.run_id}"
@@ -123,6 +129,7 @@ class JobManager:
             directives=directives,
             scheduler=self.scheduler,
             workdir=workdir,
+            job_workdir=workdir,
             setup_commands=setup_commands,
             cmd=cmd,
         )

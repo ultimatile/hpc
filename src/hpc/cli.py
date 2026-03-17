@@ -9,7 +9,7 @@ import typer
 from typing_extensions import Annotated
 
 from .main import app
-from .config import ConfigManager, HpcConfig
+from .config import ConfigManager, HpcConfig, find_config
 from .ssh import SSHManager
 from .sync import SyncManager
 from .job import JobManager
@@ -21,23 +21,28 @@ ConfigOption = Annotated[
 ]
 
 
-def _resolve_config_path(config_path: Optional[Path]) -> Path:
-    """Resolve config path: --config > $HPC_CONFIG > hpc.toml"""
+def _resolve_config_path(config_path: Optional[Path], walk_up: bool = True) -> Path:
+    """Resolve config path: --config > $HPC_CONFIG > walk-up discovery > CWD"""
     if config_path:
         return config_path
     if env_config := os.environ.get("HPC_CONFIG"):
         return Path(env_config)
+    if walk_up:
+        found = find_config("hpc.toml")
+        if found is not None:
+            return found
     return Path("hpc.toml")
 
 
-def _load_config(config_path: Optional[Path]) -> tuple[Path, HpcConfig]:
-    """Resolve and load config, returning both path and config"""
+def _load_config(config_path: Optional[Path]) -> tuple[Path, Path, HpcConfig]:
+    """Resolve and load config, returning config path, project root, and config"""
     path = _resolve_config_path(config_path)
     if not path.exists():
         print(f"Config file not found: {path}")
         raise typer.Exit(1)
     manager = ConfigManager()
-    return path, manager.load_config(path)
+    project_root = path.resolve().parent
+    return path, project_root, manager.load_config(path)
 
 
 def _get_user_config_path() -> Path:
@@ -49,7 +54,7 @@ def _get_user_config_path() -> Path:
 @app.command()
 def init(config: ConfigOption = None):
     """Initialize HPC project configuration"""
-    config_path = _resolve_config_path(config)
+    config_path = _resolve_config_path(config, walk_up=False)
     if config_path.exists():
         print(f"Config file already exists: {config_path}")
         return
@@ -72,7 +77,7 @@ def sync(
     config: ConfigOption = None,
 ):
     """Sync files bidirectionally with remote HPC cluster (push then pull)"""
-    config_path, hpc_config = _load_config(config)
+    config_path, project_root, hpc_config = _load_config(config)
 
     if push and pull:
         print("Error: cannot use --push and --pull together")
@@ -82,7 +87,7 @@ def sync(
     sync_manager = SyncManager(ssh_manager=ssh, config=hpc_config)
 
     dry_run = not apply
-    local_path = Path.cwd()
+    local_path = project_root
     use_checksum = hpc_config.sync.compare == "checksum"
 
     # Default: bidirectional (push then pull)
@@ -129,7 +134,7 @@ def submit(
     config: ConfigOption = None,
 ):
     """Submit a job to the scheduler"""
-    config_path, hpc_config = _load_config(config)
+    config_path, project_root, hpc_config = _load_config(config)
 
     if not cmd and not script:
         print("Error: provide a command or --script")
@@ -144,18 +149,24 @@ def submit(
     # Get git commit if in a git repo
     ssh = SSHManager(host=hpc_config.cluster.host)
     sync_manager = SyncManager(ssh_manager=ssh, config=hpc_config)
-    git_commit = sync_manager.get_git_commit(Path.cwd(), short=True)
+    git_commit = sync_manager.get_git_commit(project_root, short=True)
 
-    if sync_manager.has_uncommitted_changes(Path.cwd()):
+    if sync_manager.has_uncommitted_changes(project_root):
         print("Warning: uncommitted changes detected")
 
-    runs_dir = Path(".hpc/runs")
+    # Compute CWD offset from project root for job working directory
+    try:
+        cwd_relative = Path.cwd().resolve().relative_to(project_root)
+    except ValueError:
+        cwd_relative = Path(".")
+
+    runs_dir = project_root / ".hpc" / "runs"
     run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
     run = run_manager.create_run(cmd, git_commit=git_commit)
 
     job_manager = JobManager(ssh_manager=ssh, config=hpc_config)
 
-    job_id = job_manager.submit_run(run)
+    job_id = job_manager.submit_run(run, cwd_relative=cwd_relative)
     run.job_id = job_id
     run.status = "submitted"
     run_manager.save_run_meta(run)
@@ -176,13 +187,13 @@ def submit(
 @app.command()
 def status(id: str = typer.Argument(None), config: ConfigOption = None):
     """Check job status (accepts run_id or job_id)"""
-    config_path, hpc_config = _load_config(config)
+    config_path, project_root, hpc_config = _load_config(config)
 
     if not id:
         print("Please specify a run_id or job_id")
         raise typer.Exit(1)
 
-    runs_dir = Path(".hpc/runs")
+    runs_dir = project_root / ".hpc" / "runs"
     run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
 
     # Try as run_id first, then as job_id
@@ -211,9 +222,9 @@ def status(id: str = typer.Argument(None), config: ConfigOption = None):
 @app.command(name="list")
 def list_runs(config: ConfigOption = None):
     """List all runs"""
-    config_path, hpc_config = _load_config(config)
+    config_path, project_root, hpc_config = _load_config(config)
 
-    runs_dir = Path(".hpc/runs")
+    runs_dir = project_root / ".hpc" / "runs"
     run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
     runs = run_manager.list_runs()
 
@@ -235,9 +246,9 @@ def job_output(
     config: ConfigOption = None,
 ):
     """Show job output (accepts run_id or job_id)"""
-    config_path, hpc_config = _load_config(config)
+    config_path, project_root, hpc_config = _load_config(config)
 
-    runs_dir = Path(".hpc/runs")
+    runs_dir = project_root / ".hpc" / "runs"
     run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
 
     # Try as run_id first, then as job_id
@@ -264,9 +275,9 @@ def job_output(
 @app.command()
 def wait(id: str, config: ConfigOption = None):
     """Wait for a run to complete (accepts run_id or job_id)"""
-    config_path, hpc_config = _load_config(config)
+    config_path, project_root, hpc_config = _load_config(config)
 
-    runs_dir = Path(".hpc/runs")
+    runs_dir = project_root / ".hpc" / "runs"
     run_manager = RunManager(config=hpc_config, runs_dir=runs_dir)
 
     # Try as run_id first, then as job_id

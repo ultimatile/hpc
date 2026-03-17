@@ -1,5 +1,6 @@
 """Job manager tests"""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -98,3 +99,23 @@ class TestJobManagerTemplate:
         assert "#SBATCH --mem=32G" in script
         assert "#SBATCH --job-name=test_run" in script
         assert "python train.py" in script
+
+    def test_render_job_script_default_cwd(self, mock_ssh_manager, sample_config):
+        """Default cwd_relative=Path('.') uses workdir as job working directory"""
+        manager = JobManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        from hpc.run import RunConfig
+
+        run = RunConfig(run_id="test_run", cmd="echo hi", status="pending")
+        script = manager._render_job_script(run)
+        assert "cd /scratch/user/proj" in script
+
+    def test_render_job_script_with_subdirectory(self, mock_ssh_manager, sample_config):
+        """cwd_relative appends subdirectory to workdir for job cd"""
+        manager = JobManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        from hpc.run import RunConfig
+
+        run = RunConfig(run_id="test_run", cmd="echo hi", status="pending")
+        script = manager._render_job_script(run, cwd_relative=Path("runs/bench1"))
+        assert "cd /scratch/user/proj/runs/bench1" in script
+        # Output paths still use base workdir
+        assert "--output=/scratch/user/proj/.hpc/runs/test_run" in script
