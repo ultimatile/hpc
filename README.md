@@ -4,9 +4,16 @@ An automation CLI tool for HPC workflow: source code/data sync and scheduler job
 
 ## Installation
 
+One-shot execution (no install):
+
 ```bash
-# execute in this repo
-uv tool install .
+uvx --from git+https://github.com/ultimatile/hpc hpc
+```
+
+Permanent install:
+
+```bash
+uv tool install git+https://github.com/ultimatile/hpc
 ```
 
 ## Quick Start
@@ -18,9 +25,9 @@ hpc init
 # 2. Edit configuration
 vim hpc.toml
 
-# 3. Sync files to cluster (dry-run first)
+# 3. Sync files to cluster
 hpc sync
-hpc sync --apply
+hpc sync --dry-run  # preview only
 
 # 4. Submit job
 hpc submit "python train.py"
@@ -45,10 +52,14 @@ hpc init
 ### `hpc sync`
 
 Syncs local files to the remote HPC cluster using rsync.
+Always syncs the entire project root (where `hpc.toml` is located), regardless of which subdirectory you run from.
 
 ```bash
-hpc sync           # dry-run (shows what would be synced)
-hpc sync --apply   # actual sync
+hpc sync                # sync files
+hpc sync --dry-run      # preview without syncing (-n for short)
+hpc sync --workdir /scratch/user/other   # override remote workdir
+hpc sync --push         # push only (local → remote)
+hpc sync --pull         # pull only (remote → local)
 ```
 
 ### `hpc submit`
@@ -56,10 +67,13 @@ hpc sync --apply   # actual sync
 Submits a job to the configured scheduler.
 Returns both run_id (e.g., `20260109_1234`, hpc's local tracking ID) and job_id (scheduler job ID, e.g., `12345678`).
 
+The job's working directory is set based on your current position relative to the project root (see [Multi-Setup Runs](#multi-setup-runs)).
+
 ```bash
 hpc submit "python train.py"
 hpc submit --script run.sh
 hpc submit -s run.sh --wait
+hpc submit --workdir /scratch/user/other "python train.py"  # override remote workdir
 ```
 
 ### `hpc status`
@@ -88,6 +102,56 @@ Accepts either run_id or job_id.
 ```bash
 hpc wait 12345678
 ```
+
+## Project Root and Config Discovery
+
+hpc walks up from the current directory to find `hpc.toml`, similar to how git finds `.git`. This means you can run hpc commands from any subdirectory within your project.
+
+Resolution order: `--config` / `-c` > `$HPC_CONFIG` > walk-up discovery > `./hpc.toml`.
+
+The directory containing `hpc.toml` is the **project root**. This affects:
+
+- **`hpc sync`**: always syncs the entire project root to `workdir`, regardless of CWD
+- **`hpc submit`**: sets the job's `cd` to `workdir` + (CWD relative to project root)
+- **`.hpc/runs/`**: run metadata is always stored at the project root
+
+`hpc init` does not walk up — it always creates `hpc.toml` in the current directory.
+
+## Multi-Setup Runs
+
+When running multiple benchmarks or parameter sets from a single project, use subdirectories. hpc automatically maps your local directory structure to the remote.
+
+```
+myproject/
+  hpc.toml              # workdir = "/remote/myproject"
+  src/main.py
+  runs/
+    setup-a/
+      input.dat
+    setup-b/
+      input.dat
+```
+
+```bash
+# Sync the entire project (same result from any subdirectory)
+hpc sync
+
+# Submit from a subdirectory — job runs in the matching remote path
+cd runs/setup-a
+hpc submit "python src/main.py"
+# → job cd's to /remote/myproject/runs/setup-a
+
+cd ../setup-b
+hpc submit "python src/main.py"
+# → job cd's to /remote/myproject/runs/setup-b
+```
+
+Key points:
+
+- **sync** is always project-wide. The remote mirrors your local project structure exactly.
+- **submit** uses your CWD to determine the job's working directory on the remote.
+- **`--workdir`** overrides `cluster.workdir` for one-off use without editing `hpc.toml`.
+- Large artifacts that shouldn't be synced are managed via `[sync] ignore`.
 
 ## Configuration
 
