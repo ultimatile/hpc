@@ -37,7 +37,7 @@ class TestEndToEndWorkflow:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             result = cli_runner.invoke(app, ["sync"])
             assert result.exit_code == 0
-            assert "Dry run" in result.stdout
+            assert "Sync completed" in result.stdout
 
     def test_submit_after_init(self, cli_runner, temp_dir, monkeypatch):
         monkeypatch.chdir(temp_dir)

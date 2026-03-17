@@ -74,7 +74,7 @@ def init(config: ConfigOption = None):
 
 @app.command()
 def sync(
-    apply: bool = False,
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show what would be synced without executing"),
     push: bool = typer.Option(False, "--push", help="Only push local to remote"),
     pull: bool = typer.Option(False, "--pull", help="Only pull remote to local"),
     workdir: WorkdirOption = None,
@@ -91,8 +91,6 @@ def sync(
 
     ssh = SSHManager(host=hpc_config.cluster.host)
     sync_manager = SyncManager(ssh_manager=ssh, config=hpc_config)
-
-    dry_run = not apply
     local_path = project_root
     use_checksum = hpc_config.sync.compare == "checksum"
 
@@ -125,7 +123,7 @@ def sync(
         )
 
     if dry_run:
-        print("Dry run completed. Use --apply to sync files.")
+        print("Dry run completed.")
     else:
         print("Sync completed.")
 
