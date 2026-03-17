@@ -19,6 +19,9 @@ from .run import RunManager
 ConfigOption = Annotated[
     Optional[Path], typer.Option("--config", "-c", help="Config file path")
 ]
+WorkdirOption = Annotated[
+    Optional[str], typer.Option("--workdir", "-w", help="Override remote workdir")
+]
 
 
 def _resolve_config_path(config_path: Optional[Path], walk_up: bool = True) -> Path:
@@ -74,10 +77,13 @@ def sync(
     apply: bool = False,
     push: bool = typer.Option(False, "--push", help="Only push local to remote"),
     pull: bool = typer.Option(False, "--pull", help="Only pull remote to local"),
+    workdir: WorkdirOption = None,
     config: ConfigOption = None,
 ):
     """Sync files bidirectionally with remote HPC cluster (push then pull)"""
     config_path, project_root, hpc_config = _load_config(config)
+    if workdir:
+        hpc_config.cluster.workdir = workdir
 
     if push and pull:
         print("Error: cannot use --push and --pull together")
@@ -131,10 +137,15 @@ def submit(
         None, "--script", "-s", help="Shell script file to submit"
     ),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for job completion"),
+    workdir: Annotated[
+        Optional[str], typer.Option("--workdir", help="Override remote workdir")
+    ] = None,
     config: ConfigOption = None,
 ):
     """Submit a job to the scheduler"""
     config_path, project_root, hpc_config = _load_config(config)
+    if workdir:
+        hpc_config.cluster.workdir = workdir
 
     if not cmd and not script:
         print("Error: provide a command or --script")
