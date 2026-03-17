@@ -83,3 +83,32 @@ class TestSyncManagerSyncInputs:
             manager.sync_inputs(local_path=temp_dir, dry_run=True)
             call_args = mock_run.call_args[0][0]
             assert "--exclude" in call_args
+
+
+class TestRemoteDir:
+    def test_ensure_remote_dir(self, mock_ssh_manager, sample_config):
+        manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        manager.ensure_remote_dir()
+        mock_ssh_manager.run_command.assert_called_once_with(
+            "mkdir", ["-p", "/scratch/user/proj"]
+        )
+
+    def test_ensure_remote_dir_tilde(self, mock_ssh_manager, sample_config):
+        sample_config.cluster.workdir = "~/proj"
+        manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        mock_ssh_manager.run_command.side_effect = [
+            MagicMock(stdout="/home/user\n"),  # printenv HOME
+            MagicMock(),  # mkdir
+        ]
+        manager.ensure_remote_dir()
+        mock_ssh_manager.run_command.assert_any_call("printenv", ["HOME"])
+        mock_ssh_manager.run_command.assert_any_call(
+            "mkdir", ["-p", "/home/user/proj"]
+        )
+
+    def test_remote_dir_exists_uses_resolve(self, mock_ssh_manager, sample_config):
+        manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        assert manager.remote_dir_exists() is True
+        mock_ssh_manager.run_command.assert_called_once_with(
+            "test", ["-d", "/scratch/user/proj"]
+        )

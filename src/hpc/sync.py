@@ -131,21 +131,30 @@ class SyncManager:
                     targets.append(parts[1])
         return targets
 
+    def _resolve_remote_workdir(self) -> str:
+        """Resolve remote workdir, expanding ~ to actual home path"""
+        workdir = self.config.cluster.workdir
+        if workdir.startswith("~/") or workdir == "~":
+            result = self.ssh_manager.run_command("printenv", ["HOME"])
+            home_dir = result.stdout.strip()
+            workdir = (
+                workdir.replace("~", home_dir, 1) if workdir != "~" else home_dir
+            )
+        return workdir
+
     def remote_dir_exists(self) -> bool:
         """Check if remote workdir exists"""
         try:
-            workdir = self.config.cluster.workdir
-            # Resolve ~ to actual home path
-            if workdir.startswith("~/") or workdir == "~":
-                result = self.ssh_manager.run_command("printenv", ["HOME"])
-                home_dir = result.stdout.strip()
-                workdir = (
-                    workdir.replace("~", home_dir, 1) if workdir != "~" else home_dir
-                )
+            workdir = self._resolve_remote_workdir()
             self.ssh_manager.run_command("test", ["-d", workdir])
             return True
         except Exception:
             return False
+
+    def ensure_remote_dir(self) -> None:
+        """Create remote workdir if it does not exist"""
+        workdir = self._resolve_remote_workdir()
+        self.ssh_manager.run_command("mkdir", ["-p", workdir])
 
     def sync_push(
         self, local_path: Path, dry_run: bool = True, use_checksum: bool = True
