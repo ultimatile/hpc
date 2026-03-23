@@ -101,7 +101,7 @@ class SyncManager:
             for pattern in extra_excludes:
                 cmd.extend(["--exclude", pattern])
 
-        remote = f"{self.config.cluster.host}:{self.config.cluster.workdir}"
+        remote = f"{self.config.cluster.host}:{self._resolve_remote_workdir()}"
         local = str(local_path) + "/"
 
         if reverse:
