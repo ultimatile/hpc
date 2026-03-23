@@ -1,7 +1,7 @@
 """HPC CLI entry point"""
 
 import typer
-from click import Argument, Option
+from click import Argument, Group, Option
 
 app = typer.Typer(help="HPC job execution support tool")
 
@@ -9,6 +9,7 @@ app = typer.Typer(help="HPC job execution support tool")
 def _generate_skill_reference(cli_app: typer.Typer) -> str:
     """Generate markdown CLI reference from Typer app metadata for use in SKILL.md."""
     click_app = typer.main.get_command(cli_app)
+    assert isinstance(click_app, Group)
     lines = ["## Commands", ""]
     for name, cmd in sorted(click_app.commands.items()):
         lines.append(f"### `hpc {name}`")
@@ -21,7 +22,9 @@ def _generate_skill_reference(cli_app: typer.Typer) -> str:
             for arg in args:
                 type_name = arg.type.name.upper() if arg.type else ""
                 required = " (required)" if arg.required else ""
-                lines.append(f"- Argument: `{arg.human_readable_name}` {type_name}{required}")
+                lines.append(
+                    f"- Argument: `{arg.human_readable_name}` {type_name}{required}"
+                )
         if opts:
             for opt in opts:
                 decls = ", ".join(f"`{d}`" for d in opt.opts)
@@ -33,16 +36,19 @@ def _generate_skill_reference(cli_app: typer.Typer) -> str:
     from pydantic_core import PydanticUndefined
 
     from .config import HpcConfig
+
     lines.append("## Configuration (hpc.toml)")
     lines.append("")
     for field_name, field_info in HpcConfig.model_fields.items():
         annotation = field_info.annotation
-        doc = annotation.__doc__ if annotation and hasattr(annotation, "__doc__") else ""
+        doc = (
+            annotation.__doc__ if annotation and hasattr(annotation, "__doc__") else ""
+        )
         lines.append(f"### `[{field_name}]`")
         if doc:
             lines.append(doc)
-        if hasattr(annotation, "model_fields"):
-            for sub_name, sub_info in annotation.model_fields.items():
+        if annotation is not None and hasattr(annotation, "model_fields"):
+            for sub_name, sub_info in annotation.model_fields.items():  # type: ignore[union-attr]
                 raw = str(sub_info.annotation).replace("typing.", "")
                 # str(str) gives "<class 'str'>", normalize to "str"
                 if raw.startswith("<class '"):
@@ -52,7 +58,9 @@ def _generate_skill_reference(cli_app: typer.Typer) -> str:
                 if sub_info.default is PydanticUndefined:
                     lines.append(f"- `{sub_name}`: {type_hint} (required)")
                 else:
-                    lines.append(f"- `{sub_name}`: {type_hint} (default: {sub_info.default!r})")
+                    lines.append(
+                        f"- `{sub_name}`: {type_hint} (default: {sub_info.default!r})"
+                    )
         lines.append("")
 
     return "\n".join(lines)
@@ -71,7 +79,11 @@ def _skill_callback(value: bool):
 @app.callback()
 def app_callback(
     skill: bool = typer.Option(
-        False, "--skill", hidden=True, callback=_skill_callback, is_eager=True,
+        False,
+        "--skill",
+        hidden=True,
+        callback=_skill_callback,
+        is_eager=True,
         help="Print CLI reference for SKILL.md",
     ),
 ):

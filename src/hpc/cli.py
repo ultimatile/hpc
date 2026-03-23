@@ -74,7 +74,9 @@ def init(config: ConfigOption = None):
 
 @app.command()
 def sync(
-    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show what would be synced without executing"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", "-n", help="Show what would be synced without executing"
+    ),
     push: bool = typer.Option(False, "--push", help="Only push local to remote"),
     pull: bool = typer.Option(False, "--pull", help="Only pull remote to local"),
     workdir: WorkdirOption = None,

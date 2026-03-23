@@ -73,9 +73,7 @@ class JobManager:
                 directives.append(f"{prefix} --{key.replace('_', '-')}={value}")
             return directives
 
-    def _render_job_script(
-        self, run: RunConfig, cwd_relative: Path = Path(".")
-    ) -> str:
+    def _render_job_script(self, run: RunConfig, cwd_relative: Path = Path(".")) -> str:
         """Render job script from template"""
         template = Template(JOB_TEMPLATE)
         workdir = _resolve_home_path(self.ssh_manager, self.config.cluster.workdir)

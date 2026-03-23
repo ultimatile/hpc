@@ -137,9 +137,7 @@ class SyncManager:
         if workdir.startswith("~/") or workdir == "~":
             result = self.ssh_manager.run_command("printenv", ["HOME"])
             home_dir = result.stdout.strip()
-            workdir = (
-                workdir.replace("~", home_dir, 1) if workdir != "~" else home_dir
-            )
+            workdir = workdir.replace("~", home_dir, 1) if workdir != "~" else home_dir
         return workdir
 
     def remote_dir_exists(self) -> bool:

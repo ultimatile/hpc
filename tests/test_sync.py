@@ -102,9 +102,7 @@ class TestRemoteDir:
         ]
         manager.ensure_remote_dir()
         mock_ssh_manager.run_command.assert_any_call("printenv", ["HOME"])
-        mock_ssh_manager.run_command.assert_any_call(
-            "mkdir", ["-p", "/home/user/proj"]
-        )
+        mock_ssh_manager.run_command.assert_any_call("mkdir", ["-p", "/home/user/proj"])
 
     def test_remote_dir_exists_uses_resolve(self, mock_ssh_manager, sample_config):
         manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
