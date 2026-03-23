@@ -249,6 +249,10 @@ On macOS, install rsync via Homebrew:
 brew install rsync
 ```
 
+## Claude Code Integration
+
+This project includes a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) (`.claude/skills/hpc/SKILL.md`) that teaches Claude how to use the hpc CLI. The CLI reference in the skill is dynamically generated via `hpc --skill` to stay in sync with the code.
+
 ## Development
 
 ```bash
