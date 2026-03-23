@@ -28,6 +28,33 @@ def _generate_skill_reference(cli_app: typer.Typer) -> str:
                 help_text = f": {opt.help}" if opt.help else ""
                 lines.append(f"- {decls}{help_text}")
         lines.append("")
+
+    # Generate config reference from Pydantic models
+    from pydantic_core import PydanticUndefined
+
+    from .config import HpcConfig
+    lines.append("## Configuration (hpc.toml)")
+    lines.append("")
+    for field_name, field_info in HpcConfig.model_fields.items():
+        annotation = field_info.annotation
+        doc = annotation.__doc__ if annotation and hasattr(annotation, "__doc__") else ""
+        lines.append(f"### `[{field_name}]`")
+        if doc:
+            lines.append(doc)
+        if hasattr(annotation, "model_fields"):
+            for sub_name, sub_info in annotation.model_fields.items():
+                raw = str(sub_info.annotation).replace("typing.", "")
+                # str(str) gives "<class 'str'>", normalize to "str"
+                if raw.startswith("<class '"):
+                    type_hint = raw[8:-2]
+                else:
+                    type_hint = raw
+                if sub_info.default is PydanticUndefined:
+                    lines.append(f"- `{sub_name}`: {type_hint} (required)")
+                else:
+                    lines.append(f"- `{sub_name}`: {type_hint} (default: {sub_info.default!r})")
+        lines.append("")
+
     return "\n".join(lines)
 
 
