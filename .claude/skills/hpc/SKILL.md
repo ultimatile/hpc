@@ -1,6 +1,7 @@
 ---
 name: hpc
 description: HPC cluster workflow automation - sync files to remote cluster, submit scheduler jobs (Slurm/PJM), and monitor job status. Use when working with hpc.toml, submitting HPC jobs, syncing to clusters, or checking job status.
+allowed-tools: Bash(hpc:*)
 ---
 
 # hpc CLI
@@ -13,15 +14,17 @@ HPC workflow automation tool for file sync and scheduler job management (Slurm/P
 !`hpc --skill`
 ```
 
+## Getting Started
+
+If `hpc.toml` does not exist in the project, run `hpc init` to create it, then ask the user to edit it with their cluster settings (host, workdir, scheduler, etc.) before proceeding.
+
 ## Typical Workflow
 
-1. `hpc init` - Create `hpc.toml` configuration
-2. Edit `hpc.toml` (cluster, env, sync, scheduler options)
-3. `hpc sync` - Sync files to remote cluster (`--dry-run` to preview)
-4. `hpc submit "command"` or `hpc submit -s script.sh` - Submit a job
-5. `hpc status <id>` - Check job status (accepts run_id or job_id)
-6. `hpc job-output <id>` - View stdout (`-e` for stderr)
-7. `hpc wait <id>` - Wait for completion
+1. `hpc sync` - Sync files to remote cluster (`--dry-run` to preview)
+2. `hpc submit "command"` or `hpc submit -s script.sh` - Submit a job
+3. `hpc status <id>` - Check job status (accepts run_id or job_id)
+4. `hpc job-output <id>` - View stdout (`-e` for stderr)
+5. `hpc wait <id>` - Wait for completion
 
 ## Key Concepts
 
