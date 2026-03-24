@@ -88,6 +88,18 @@ class SSHManager:
         except Exception:
             return False
 
+    def run_script(self, script: str) -> int:
+        """Execute a shell script on remote host, streaming output to terminal.
+
+        Pipes script to 'bash -s' via SSH. Returns the process exit code.
+        """
+        result = subprocess.run(
+            self._build_ssh_command("bash -s"),
+            input=script,
+            text=True,
+        )
+        return result.returncode
+
     def run_command(
         self,
         cmd: str,

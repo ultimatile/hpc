@@ -95,6 +95,32 @@ class TestSSHManagerRunCommand:
             assert result.stderr == "warning message"
 
 
+class TestSSHManagerRunScript:
+    def test_run_script_uses_bash_stdin(self):
+        manager = SSHManager(host="myhpc")
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            manager.run_script("echo hello")
+            call_args = mock_run.call_args
+            assert call_args[0][0][-1] == "bash -s"
+            assert call_args[1]["input"] == "echo hello"
+            assert call_args[1]["text"] is True
+
+    def test_run_script_does_not_capture_output(self):
+        manager = SSHManager(host="myhpc")
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            manager.run_script("echo hello")
+            call_kwargs = mock_run.call_args[1]
+            assert "capture_output" not in call_kwargs
+
+    def test_run_script_returns_exit_code(self):
+        manager = SSHManager(host="myhpc")
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=42)
+            assert manager.run_script("exit 42") == 42
+
+
 class TestSSHManagerControlMaster:
     def test_control_master_options_included(self):
         manager = SSHManager(host="myhpc", use_control_master=True)

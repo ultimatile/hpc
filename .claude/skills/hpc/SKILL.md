@@ -21,10 +21,11 @@ If `hpc.toml` does not exist in the project, run `hpc init` to create it, then a
 ## Typical Workflow
 
 1. `hpc sync` - Sync files to remote cluster (`--dry-run` to preview)
-2. `hpc submit "command"` or `hpc submit -s script.sh` - Submit a job
-3. `hpc status <id>` - Check job status (accepts run_id or job_id)
-4. `hpc job-output <id>` - View stdout (`-e` for stderr)
-5. `hpc wait <id>` - Wait for completion
+2. `hpc exec "command"` - Run setup on the login node (package installs, configure, etc.)
+3. `hpc submit "command"` or `hpc submit -s script.sh` - Submit a job
+4. `hpc status <id>` - Check job status (accepts run_id or job_id)
+5. `hpc job-output <id>` - View stdout (`-e` for stderr)
+6. `hpc wait <id>` - Wait for completion
 
 ## Key Concepts
 

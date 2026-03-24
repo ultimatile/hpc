@@ -130,6 +130,65 @@ def sync(
         print("Sync completed.")
 
 
+@app.command(name="exec")
+def exec_cmd(
+    cmd: str = typer.Argument(None),
+    script: Path = typer.Option(
+        None, "--script", "-s", help="Shell script file to execute"
+    ),
+    workdir: Annotated[
+        Optional[str], typer.Option("--workdir", help="Override remote workdir")
+    ] = None,
+    config: ConfigOption = None,
+):
+    """Execute a command on the login node (not via scheduler)"""
+    config_path, project_root, hpc_config = _load_config(config)
+    if workdir:
+        hpc_config.cluster.workdir = workdir
+
+    if not cmd and not script:
+        print("Error: provide a command or --script")
+        raise typer.Exit(1)
+
+    if script:
+        if not script.exists():
+            print(f"Script not found: {script}")
+            raise typer.Exit(1)
+        cmd = script.read_text()
+
+    try:
+        cwd_relative = Path.cwd().resolve().relative_to(project_root)
+    except ValueError:
+        cwd_relative = Path(".")
+
+    ssh = SSHManager(host=hpc_config.cluster.host)
+
+    # Resolve ~ in workdir
+    remote_workdir = hpc_config.cluster.workdir
+    if remote_workdir.startswith("~/") or remote_workdir == "~":
+        result = ssh.run_command("printenv", ["HOME"])
+        home = result.stdout.strip()
+        remote_workdir = (
+            remote_workdir.replace("~", home, 1) if remote_workdir != "~" else home
+        )
+    job_workdir = str(Path(remote_workdir) / cwd_relative)
+
+    # Build script: set -e → cd → env setup → user command
+    import shlex
+
+    lines = [
+        "set -e",
+        f"cd {shlex.quote(job_workdir)}",
+        *hpc_config.env.get_setup_commands(),
+        cmd,
+    ]
+    script_text = "\n".join(lines)
+
+    returncode = ssh.run_script(script_text)
+    if returncode != 0:
+        raise typer.Exit(returncode)
+
+
 @app.command()
 def submit(
     cmd: str = typer.Argument(None),

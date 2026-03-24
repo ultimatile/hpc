@@ -62,6 +62,18 @@ hpc sync --push         # push only (local → remote)
 hpc sync --pull         # pull only (remote → local)
 ```
 
+### `hpc exec`
+
+Executes a command directly on the login node (not via scheduler). Useful for setup tasks that need internet access (package installs, dependency downloads).
+
+```bash
+hpc exec "julia -e 'using Pkg; Pkg.instantiate()'"
+hpc exec --script setup.sh
+hpc exec --workdir /scratch/user/other "cmake .."
+```
+
+Environment setup (`[env]` section) is applied automatically. The working directory follows the same CWD-relative logic as `hpc submit`.
+
 ### `hpc submit`
 
 Submits a job to the configured scheduler.
