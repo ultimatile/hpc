@@ -154,12 +154,16 @@ class JobManager:
         try:
             result = self.ssh_manager.run_command("cat", [output_path])
             return result.stdout
-        except SSHError:
-            status = self.get_job_status(job_id)
-            if status in (JobStatus.PENDING, JobStatus.RUNNING):
-                return (
-                    f"Job {job_id} is {status.value}. Output file not yet available.\n"
-                )
+        except SSHError as e:
+            # Check if the file simply doesn't exist (job still running)
+            if "No such file" in str(e):
+                try:
+                    status = self.get_job_status(job_id)
+                except SSHError:
+                    pass  # Can't check status either; re-raise original error
+                else:
+                    if status in (JobStatus.PENDING, JobStatus.RUNNING):
+                        return f"Job {job_id} is {status.value}. Output file not yet available.\n"
             raise
 
     def wait_for_job(
