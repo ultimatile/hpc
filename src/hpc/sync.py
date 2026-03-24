@@ -77,7 +77,7 @@ class SyncManager:
         use_checksum: bool = True,
     ) -> list[str]:
         """Build rsync command with options"""
-        cmd = ["rsync", "-avz", "-e", "ssh -q"]
+        cmd = ["rsync", "-avz", "-e", "ssh -o LogLevel=ERROR"]
 
         if use_checksum:
             cmd.append("--checksum")
