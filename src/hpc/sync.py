@@ -15,6 +15,7 @@ class SyncResult:
 
     success: bool
     dry_run: bool
+    returncode: int = 0
 
 
 class SyncManager:
@@ -162,7 +163,11 @@ class SyncManager:
             local_path, dry_run, reverse=False, use_checksum=use_checksum
         )
         result = subprocess.run(cmd)
-        return SyncResult(success=result.returncode == 0, dry_run=dry_run)
+        return SyncResult(
+            success=result.returncode == 0,
+            dry_run=dry_run,
+            returncode=result.returncode,
+        )
 
     def sync_pull(
         self,
@@ -187,7 +192,11 @@ class SyncManager:
             use_checksum=use_checksum,
         )
         result = subprocess.run(cmd)
-        return SyncResult(success=result.returncode == 0, dry_run=dry_run)
+        return SyncResult(
+            success=result.returncode == 0,
+            dry_run=dry_run,
+            returncode=result.returncode,
+        )
 
     def sync_inputs(
         self, local_path: Path, dry_run: bool = True, use_checksum: bool = True

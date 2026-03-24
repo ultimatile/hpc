@@ -110,10 +110,14 @@ def sync(
         print("Remote directory does not exist, skipping pull")
         do_pull = False
 
+    results = []
+
     if do_push:
         print("==> Push (local → remote)")
-        sync_manager.sync_push(
-            local_path=local_path, dry_run=dry_run, use_checksum=use_checksum
+        results.append(
+            sync_manager.sync_push(
+                local_path=local_path, dry_run=dry_run, use_checksum=use_checksum
+            )
         )
     if do_pull:
         pull_dir = None
@@ -124,13 +128,27 @@ def sync(
             print(f"==> Pull (remote → {pull_dir})")
         else:
             print("==> Pull (remote → local)")
-        sync_manager.sync_pull(
-            local_path=local_path,
-            dry_run=dry_run,
-            exclude_push_targets=dry_run and do_push,
-            use_checksum=use_checksum,
-            pull_dir=pull_dir,
+        results.append(
+            sync_manager.sync_pull(
+                local_path=local_path,
+                dry_run=dry_run,
+                exclude_push_targets=dry_run and do_push,
+                use_checksum=use_checksum,
+                pull_dir=pull_dir,
+            )
         )
+
+    failed = [r for r in results if not r.success]
+    if failed:
+        for r in failed:
+            if r.returncode == 255:
+                print(
+                    "Error: SSH connection failed. "
+                    "Please check your SSH config and run 'hpc sync' again."
+                )
+            else:
+                print(f"Error: rsync failed with exit code {r.returncode}")
+        raise typer.Exit(1)
 
     if dry_run:
         print("Dry run completed.")
