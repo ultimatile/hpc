@@ -78,6 +78,7 @@ class SyncConfig(BaseModel):
     ignore_push: list[str] = []
     ignore_pull: list[str] = []
     compare: Literal["checksum", "timestamp"] = "checksum"
+    pull_dir: str = ""
 
 
 class SlurmConfig(BaseModel):

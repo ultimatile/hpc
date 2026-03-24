@@ -170,15 +170,17 @@ class SyncManager:
         dry_run: bool = True,
         exclude_push_targets: bool = False,
         use_checksum: bool = True,
+        pull_dir: Path | None = None,
     ) -> SyncResult:
-        """Sync remote files to local"""
+        """Sync remote files to local (or pull_dir if specified)"""
         extra_excludes = (
             self._get_push_targets(local_path, use_checksum)
             if exclude_push_targets
             else None
         )
+        dest = pull_dir if pull_dir is not None else local_path
         cmd = self._build_rsync_command(
-            local_path,
+            dest,
             dry_run,
             reverse=True,
             extra_excludes=extra_excludes,

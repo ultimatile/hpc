@@ -187,6 +187,7 @@ setup = [                              # Additional setup commands
 [sync]
 ignore = ["hpc.toml", ".git"]  # Patterns to exclude from sync
 compare = "checksum"           # File comparison: "checksum" (content-based, default) or "timestamp"
+pull_dir = "~/data/myproj"     # Pull destination (default: project root). Useful for keeping git repo clean
 
 [slurm.options]
 partition = "gpu"      # Example (Slurm): partition

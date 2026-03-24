@@ -116,12 +116,20 @@ def sync(
             local_path=local_path, dry_run=dry_run, use_checksum=use_checksum
         )
     if do_pull:
-        print("==> Pull (remote → local)")
+        pull_dir = None
+        if hpc_config.sync.pull_dir:
+            pull_dir = Path(hpc_config.sync.pull_dir).expanduser().resolve()
+            if not dry_run:
+                pull_dir.mkdir(parents=True, exist_ok=True)
+            print(f"==> Pull (remote → {pull_dir})")
+        else:
+            print("==> Pull (remote → local)")
         sync_manager.sync_pull(
             local_path=local_path,
             dry_run=dry_run,
             exclude_push_targets=dry_run and do_push,
             use_checksum=use_checksum,
+            pull_dir=pull_dir,
         )
 
     if dry_run:
