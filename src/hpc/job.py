@@ -181,6 +181,8 @@ class JobManager:
         """
         import time
 
+        from .ssh import SSHError
+
         current_interval = interval
         terminal_states = {
             JobStatus.COMPLETED,
@@ -190,11 +192,20 @@ class JobManager:
         }
 
         while True:
-            status = self.get_job_status(job_id)
+            time.sleep(current_interval)
+
+            try:
+                status = self.get_job_status(job_id)
+            except SSHError:
+                # Transient SSH failures (e.g. bastion rate limiting); retry
+                if adaptive:
+                    current_interval = min(
+                        current_interval * growth_factor, max_interval
+                    )
+                continue
+
             if status in terminal_states:
                 return status
-
-            time.sleep(current_interval)
 
             if adaptive:
                 current_interval = min(current_interval * growth_factor, max_interval)

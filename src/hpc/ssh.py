@@ -30,7 +30,7 @@ class SSHManager:
         self,
         host: str,
         user: Optional[str] = None,
-        use_control_master: bool = False,
+        use_control_master: bool = True,
     ):
         self._validate_target_component("host", host)
         if user is not None:
