@@ -42,6 +42,29 @@ class TestEnvConfig:
         with pytest.raises(Exception):
             config.get_setup_commands()
 
+    def test_exports_generates_export_commands(self):
+        config = EnvConfig(
+            exports={"OMP_NUM_THREADS": "${SLURM_CPUS_PER_TASK}", "FOO": "bar"}
+        )
+        cmds = config.get_setup_commands()
+        assert 'export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"' in cmds
+        assert 'export FOO="bar"' in cmds
+
+    def test_exports_rejects_command_substitution_dollar(self):
+        config = EnvConfig(exports={"FOO": "$(rm -rf /)"})
+        with pytest.raises(ValueError, match="Command substitution"):
+            config.get_setup_commands()
+
+    def test_exports_rejects_command_substitution_backtick(self):
+        config = EnvConfig(exports={"FOO": "`rm -rf /`"})
+        with pytest.raises(ValueError, match="Command substitution"):
+            config.get_setup_commands()
+
+    def test_exports_rejects_invalid_key(self):
+        config = EnvConfig(exports={"FOO;BAR": "value"})
+        with pytest.raises(ValueError):
+            config.get_setup_commands()
+
 
 class TestSlurmConfig:
     def test_slurm_config_default_options(self):

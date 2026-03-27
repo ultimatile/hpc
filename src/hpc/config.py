@@ -20,6 +20,12 @@ def _validate_arg(arg: str) -> None:
         raise ValueError(f"Shell special characters not allowed: {bad}")
 
 
+def _validate_export_value(value: str) -> None:
+    """Reject command substitution in export values while allowing variable references."""
+    if "$(" in value or "`" in value:
+        raise ValueError(f"Command substitution not allowed in export value: {value!r}")
+
+
 def build_setup_commands(setup: list[SetupItem]) -> list[str]:
     """Build shell commands from setup items"""
     cmds = []
@@ -59,16 +65,22 @@ class EnvConfig(BaseModel):
     modules: list[str] = []
     spack: list[str] = []
     setup: list[SetupItem] = []
+    exports: dict[str, str] = {}
 
     def get_setup_commands(self) -> list[str]:
-        """Build commands: modules → spack → setup"""
+        """Build commands: modules → spack → setup → exports"""
         items: list[SetupItem] = []
         for m in self.modules:
             items.append({"module": m})
         for s in self.spack:
             items.append({"spack": s})
         items.extend(self.setup)
-        return build_setup_commands(items)
+        cmds = build_setup_commands(items)
+        for key, value in self.exports.items():
+            _validate_arg(key)
+            _validate_export_value(value)
+            cmds.append(f'export {key}="{value}"')
+        return cmds
 
 
 class SyncConfig(BaseModel):
