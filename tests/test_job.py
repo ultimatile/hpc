@@ -58,10 +58,11 @@ class TestJobManagerSubmit:
         assert call_args.args[0] == "sbatch"
         assert "--parsable" in call_args.args[1]
 
-
     def test_submit_job_includes_pjm_submit_options(self, mock_ssh_manager):
         config = HpcConfig(
-            cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj", scheduler="pjm"),
+            cluster=ClusterConfig(
+                host="myhpc", workdir="/scratch/user/proj", scheduler="pjm"
+            ),
             env=EnvConfig(),
             pjm=PjmConfig(
                 options=[["-L", "node=12"]],
@@ -77,18 +78,6 @@ class TestJobManagerSubmit:
         call_args = mock_ssh_manager.run_command.call_args
         assert call_args.args[0] == "pjsub"
         assert "--no-check-directory" in call_args.args[1]
-
-    def test_submit_job_rejects_newline_in_submit_options(self, mock_ssh_manager):
-        config = HpcConfig(
-            cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj", scheduler="pjm"),
-            env=EnvConfig(),
-            pjm=PjmConfig(submit_options=["--opt\nmalicious"]),
-        )
-        manager = JobManager(ssh_manager=mock_ssh_manager, config=config)
-        mock_ssh_manager.run_command.return_value = MagicMock(stdout="")
-
-        with pytest.raises(ValueError, match="Newline and NUL"):
-            manager.submit_job("python train.py")
 
     def test_submit_job_includes_slurm_submit_options(self, mock_ssh_manager):
         config = HpcConfig(
@@ -108,10 +97,11 @@ class TestJobManagerSubmit:
         assert "--parsable" in call_args.args[1]
         assert "--export=ALL" in call_args.args[1]
 
-
     def test_submit_run_includes_pjm_submit_options(self, mock_ssh_manager):
         config = HpcConfig(
-            cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj", scheduler="pjm"),
+            cluster=ClusterConfig(
+                host="myhpc", workdir="/scratch/user/proj", scheduler="pjm"
+            ),
             env=EnvConfig(),
             pjm=PjmConfig(
                 options=[["-L", "node=12"]],

@@ -84,6 +84,14 @@ class TestSlurmConfig:
         config = SlurmConfig(submit_options=["--export=ALL"])
         assert config.submit_options == ["--export=ALL"]
 
+    def test_slurm_config_rejects_newline_in_submit_options(self):
+        with pytest.raises(ValueError, match="Newline and NUL"):
+            SlurmConfig(submit_options=["--opt\nmalicious"])
+
+    def test_slurm_config_rejects_nul_in_submit_options(self):
+        with pytest.raises(ValueError, match="Newline and NUL"):
+            SlurmConfig(submit_options=["--opt\x00malicious"])
+
 
 class TestPjmConfig:
     def test_pjm_config_defaults(self):
@@ -94,6 +102,10 @@ class TestPjmConfig:
     def test_pjm_config_with_submit_options(self):
         config = PjmConfig(submit_options=["--no-check-directory"])
         assert config.submit_options == ["--no-check-directory"]
+
+    def test_pjm_config_rejects_newline_in_submit_options(self):
+        with pytest.raises(ValueError, match="Newline and NUL"):
+            PjmConfig(submit_options=["--opt\nmalicious"])
 
 
 class TestHpcConfig:

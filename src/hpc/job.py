@@ -4,7 +4,7 @@ from pathlib import Path
 
 from jinja2 import Template
 
-from .config import HpcConfig, _validate_submit_option
+from .config import HpcConfig
 from .ssh import SSHManager
 from .run import RunConfig
 from .scheduler import JobStatus, get_scheduler
@@ -48,15 +48,12 @@ class JobManager:
         self.scheduler = get_scheduler(config.cluster.scheduler)
 
     def _get_submit_options(self) -> list[str]:
-        """Get validated submit command options from config."""
-        opts = (
+        """Get submit command options from config."""
+        return (
             self.config.pjm.submit_options
             if self.config.cluster.scheduler == "pjm"
             else self.config.slurm.submit_options
         )
-        for opt in opts:
-            _validate_submit_option(opt)
-        return opts
 
     def _build_directives(
         self, options: dict | list, job_name: str | None = None

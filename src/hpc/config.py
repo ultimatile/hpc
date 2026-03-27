@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import tomli_w
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 # str: command without args, dict: {cmd: args}
 SetupItem = str | dict[str, str | list[str]]
@@ -93,10 +93,14 @@ class SyncConfig(BaseModel):
     pull_dir: str = ""
 
 
-def _validate_submit_option(opt: str) -> None:
+def _validate_submit_options(opts: list[str]) -> list[str]:
     """Reject only structurally unsafe characters in submit options."""
-    if "\n" in opt or "\x00" in opt:
-        raise ValueError("Newline and NUL characters are not allowed in submit_options")
+    for opt in opts:
+        if "\n" in opt or "\x00" in opt:
+            raise ValueError(
+                "Newline and NUL characters are not allowed in submit_options"
+            )
+    return opts
 
 
 class SlurmConfig(BaseModel):
@@ -105,12 +109,22 @@ class SlurmConfig(BaseModel):
     options: dict[str, str | int] = {}
     submit_options: list[str] = []
 
+    @field_validator("submit_options")
+    @classmethod
+    def check_submit_options(cls, v: list[str]) -> list[str]:
+        return _validate_submit_options(v)
+
 
 class PjmConfig(BaseModel):
     """PJM job configuration"""
 
     options: list[list[str]] = []
     submit_options: list[str] = []
+
+    @field_validator("submit_options")
+    @classmethod
+    def check_submit_options(cls, v: list[str]) -> list[str]:
+        return _validate_submit_options(v)
 
 
 class HpcConfig(BaseModel):
@@ -193,7 +207,7 @@ class ConfigManager:
                     "mem": "32G",
                     "gpus": 1,
                     "account": "myaccount",
-                }
+                },
             },
         }
         with open(path, "wb") as f:
