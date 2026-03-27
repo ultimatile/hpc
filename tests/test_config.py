@@ -156,6 +156,25 @@ submit_options = ["--no-check-directory"]
         assert config.pjm.submit_options == ["--no-check-directory"]
         assert config.pjm.options == [["-L", "node=12"], ["-s"]]
 
+    def test_load_slurm_config_with_submit_options(self, temp_dir):
+        config_path = temp_dir / "hpc.toml"
+        config_path.write_text("""
+[cluster]
+host = "myhpc"
+workdir = "/scratch/user/proj"
+
+[slurm]
+submit_options = ["--export=ALL"]
+
+[slurm.options]
+partition = "gpu"
+""")
+        manager = ConfigManager()
+        config = manager.load_config(config_path)
+
+        assert config.slurm.submit_options == ["--export=ALL"]
+        assert config.slurm.options["partition"] == "gpu"
+
     def test_load_config_file_not_found(self):
         manager = ConfigManager()
         with pytest.raises(FileNotFoundError):

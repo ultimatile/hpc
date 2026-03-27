@@ -94,9 +94,9 @@ class SyncConfig(BaseModel):
 
 
 def _validate_submit_option(opt: str) -> None:
-    """Reject submit options containing shell special characters."""
-    if bad := SHELL_SPECIAL & set(opt):
-        raise ValueError(f"Shell special characters not allowed in submit_options: {bad}")
+    """Reject only structurally unsafe characters in submit options."""
+    if "\n" in opt or "\x00" in opt:
+        raise ValueError("Newline and NUL characters are not allowed in submit_options")
 
 
 class SlurmConfig(BaseModel):
@@ -186,6 +186,7 @@ class ConfigManager:
                 "ignore_push": [".hpc"],
             },
             "slurm": {
+                "submit_options": [],
                 "options": {
                     "partition": "gpu",
                     "time": "02:00:00",
