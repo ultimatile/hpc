@@ -4,7 +4,7 @@ from pathlib import Path
 
 from jinja2 import Template
 
-from .config import HpcConfig
+from .config import HpcConfig, _validate_submit_option
 from .ssh import SSHManager
 from .run import RunConfig
 from .scheduler import JobStatus, get_scheduler
@@ -46,6 +46,17 @@ class JobManager:
         self.ssh_manager = ssh_manager
         self.config = config
         self.scheduler = get_scheduler(config.cluster.scheduler)
+
+    def _get_submit_options(self) -> list[str]:
+        """Get validated submit command options from config."""
+        opts = (
+            self.config.pjm.submit_options
+            if self.config.cluster.scheduler == "pjm"
+            else self.config.slurm.submit_options
+        )
+        for opt in opts:
+            _validate_submit_option(opt)
+        return opts
 
     def _build_directives(
         self, options: dict | list, job_name: str | None = None
@@ -107,7 +118,10 @@ class JobManager:
         self.ssh_manager.run_command("tee", [script_path], input_text=script)
 
         cmd = self.scheduler.submit_cmd()
-        result = self.ssh_manager.run_command(cmd[0], cmd[1:] + [script_path])
+        submit_options = self._get_submit_options()
+        result = self.ssh_manager.run_command(
+            cmd[0], cmd[1:] + submit_options + [script_path]
+        )
         return self.scheduler.parse_job_id(result.stdout)
 
     def submit_job(self, cmd: str) -> str:
@@ -132,8 +146,9 @@ class JobManager:
             cmd=cmd,
         )
         submit_cmd = self.scheduler.submit_cmd()
+        submit_options = self._get_submit_options()
         result = self.ssh_manager.run_command(
-            submit_cmd[0], submit_cmd[1:], input_text=script
+            submit_cmd[0], submit_cmd[1:] + submit_options, input_text=script
         )
         return self.scheduler.parse_job_id(result.stdout)
 

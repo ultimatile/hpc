@@ -7,7 +7,7 @@ import pytest
 
 from hpc.job import JobManager, JobStatus
 from hpc.ssh import SSHManager
-from hpc.config import HpcConfig, ClusterConfig, EnvConfig, SlurmConfig
+from hpc.config import HpcConfig, ClusterConfig, EnvConfig, SlurmConfig, PjmConfig
 
 
 @pytest.fixture
@@ -57,6 +57,56 @@ class TestJobManagerSubmit:
         call_args = mock_ssh_manager.run_command.call_args
         assert call_args.args[0] == "sbatch"
         assert "--parsable" in call_args.args[1]
+
+
+    def test_submit_job_includes_pjm_submit_options(self, mock_ssh_manager):
+        config = HpcConfig(
+            cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj", scheduler="pjm"),
+            env=EnvConfig(),
+            pjm=PjmConfig(
+                options=[["-L", "node=12"]],
+                submit_options=["--no-check-directory"],
+            ),
+        )
+        manager = JobManager(ssh_manager=mock_ssh_manager, config=config)
+        mock_ssh_manager.run_command.return_value = MagicMock(
+            stdout="[INFO] PJM 0000 pjsub Job 12345678 submitted.\n"
+        )
+
+        manager.submit_job("python train.py")
+        call_args = mock_ssh_manager.run_command.call_args
+        assert call_args.args[0] == "pjsub"
+        assert "--no-check-directory" in call_args.args[1]
+
+    def test_submit_job_rejects_shell_injection_in_submit_options(self, mock_ssh_manager):
+        config = HpcConfig(
+            cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj", scheduler="pjm"),
+            env=EnvConfig(),
+            pjm=PjmConfig(submit_options=["--no-check-directory; rm -rf /"]),
+        )
+        manager = JobManager(ssh_manager=mock_ssh_manager, config=config)
+        mock_ssh_manager.run_command.return_value = MagicMock(stdout="")
+
+        with pytest.raises(ValueError, match="Shell special characters"):
+            manager.submit_job("python train.py")
+
+    def test_submit_job_includes_slurm_submit_options(self, mock_ssh_manager):
+        config = HpcConfig(
+            cluster=ClusterConfig(host="myhpc", workdir="/scratch/user/proj"),
+            env=EnvConfig(),
+            slurm=SlurmConfig(
+                options={"partition": "gpu"},
+                submit_options=["--export=ALL"],
+            ),
+        )
+        manager = JobManager(ssh_manager=mock_ssh_manager, config=config)
+        mock_ssh_manager.run_command.return_value = MagicMock(stdout="12345678\n")
+
+        manager.submit_job("python train.py")
+        call_args = mock_ssh_manager.run_command.call_args
+        assert call_args.args[0] == "sbatch"
+        assert "--parsable" in call_args.args[1]
+        assert "--export=ALL" in call_args.args[1]
 
 
 class TestJobManagerStatus:

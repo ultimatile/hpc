@@ -7,6 +7,7 @@ from hpc.config import (
     ClusterConfig,
     EnvConfig,
     SlurmConfig,
+    PjmConfig,
     HpcConfig,
     ConfigManager,
     find_config,
@@ -70,6 +71,7 @@ class TestSlurmConfig:
     def test_slurm_config_default_options(self):
         config = SlurmConfig()
         assert config.options == {}
+        assert config.submit_options == []
 
     def test_slurm_config_with_options(self):
         config = SlurmConfig(
@@ -77,6 +79,21 @@ class TestSlurmConfig:
         )
         assert config.options["partition"] == "gpu"
         assert config.options["gpus"] == 1
+
+    def test_slurm_config_with_submit_options(self):
+        config = SlurmConfig(submit_options=["--export=ALL"])
+        assert config.submit_options == ["--export=ALL"]
+
+
+class TestPjmConfig:
+    def test_pjm_config_defaults(self):
+        config = PjmConfig()
+        assert config.options == []
+        assert config.submit_options == []
+
+    def test_pjm_config_with_submit_options(self):
+        config = PjmConfig(submit_options=["--no-check-directory"])
+        assert config.submit_options == ["--no-check-directory"]
 
 
 class TestHpcConfig:
@@ -120,6 +137,24 @@ gpus = 1
         assert config.slurm.options["time"] == "02:00:00"
         assert config.slurm.options["mem"] == "32G"
         assert config.slurm.options["gpus"] == 1
+
+    def test_load_pjm_config_with_submit_options(self, temp_dir):
+        config_path = temp_dir / "hpc.toml"
+        config_path.write_text("""
+[cluster]
+host = "myhpc"
+workdir = "/scratch/user/proj"
+scheduler = "pjm"
+
+[pjm]
+options = [["-L", "node=12"], ["-s"]]
+submit_options = ["--no-check-directory"]
+""")
+        manager = ConfigManager()
+        config = manager.load_config(config_path)
+
+        assert config.pjm.submit_options == ["--no-check-directory"]
+        assert config.pjm.options == [["-L", "node=12"], ["-s"]]
 
     def test_load_config_file_not_found(self):
         manager = ConfigManager()

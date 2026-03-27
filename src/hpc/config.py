@@ -93,16 +93,24 @@ class SyncConfig(BaseModel):
     pull_dir: str = ""
 
 
+def _validate_submit_option(opt: str) -> None:
+    """Reject submit options containing shell special characters."""
+    if bad := SHELL_SPECIAL & set(opt):
+        raise ValueError(f"Shell special characters not allowed in submit_options: {bad}")
+
+
 class SlurmConfig(BaseModel):
     """Slurm job configuration"""
 
     options: dict[str, str | int] = {}
+    submit_options: list[str] = []
 
 
 class PjmConfig(BaseModel):
     """PJM job configuration"""
 
     options: list[list[str]] = []
+    submit_options: list[str] = []
 
 
 class HpcConfig(BaseModel):
@@ -153,8 +161,14 @@ class ConfigManager:
             cluster=ClusterConfig(**data["cluster"]),
             env=EnvConfig(**data.get("env", {})),
             sync=SyncConfig(**data.get("sync", {})),
-            slurm=SlurmConfig(options=data.get("slurm", {}).get("options", {})),
-            pjm=PjmConfig(options=data.get("pjm", {}).get("options", [])),
+            slurm=SlurmConfig(
+                options=data.get("slurm", {}).get("options", {}),
+                submit_options=data.get("slurm", {}).get("submit_options", []),
+            ),
+            pjm=PjmConfig(
+                options=data.get("pjm", {}).get("options", []),
+                submit_options=data.get("pjm", {}).get("submit_options", []),
+            ),
         )
 
     def generate_template(self, path: Path) -> None:
