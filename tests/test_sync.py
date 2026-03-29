@@ -11,7 +11,10 @@ from hpc.config import HpcConfig, ClusterConfig, EnvConfig, SlurmConfig, SyncCon
 
 @pytest.fixture
 def mock_ssh_manager():
-    return MagicMock(spec=SSHManager)
+    mock = MagicMock(spec=SSHManager)
+    mock.use_control_master = True
+    mock._control_path = "/tmp/hpc_ssh_myhpc_99999"
+    return mock
 
 
 @pytest.fixture
@@ -83,6 +86,38 @@ class TestSyncManagerSyncInputs:
             manager.sync_inputs(local_path=temp_dir, dry_run=True)
             call_args = mock_run.call_args[0][0]
             assert "--exclude" in call_args
+
+
+class TestBuildRsyncControlMaster:
+    def test_rsync_includes_control_master_when_enabled(
+        self, mock_ssh_manager, sample_config, temp_dir
+    ):
+        mock_ssh_manager.use_control_master = True
+        mock_ssh_manager._control_path = "/tmp/hpc_ssh_myhpc_12345"
+        manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            manager.sync_push(local_path=temp_dir, dry_run=True)
+            call_args = mock_run.call_args[0][0]
+            e_index = call_args.index("-e")
+            ssh_opts = call_args[e_index + 1]
+            assert "ControlMaster=auto" in ssh_opts
+            assert "ControlPath=/tmp/hpc_ssh_myhpc_12345" in ssh_opts
+            assert "ControlPersist=10m" in ssh_opts
+
+    def test_rsync_excludes_control_master_when_disabled(
+        self, mock_ssh_manager, sample_config, temp_dir
+    ):
+        mock_ssh_manager.use_control_master = False
+        manager = SyncManager(ssh_manager=mock_ssh_manager, config=sample_config)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            manager.sync_push(local_path=temp_dir, dry_run=True)
+            call_args = mock_run.call_args[0][0]
+            e_index = call_args.index("-e")
+            ssh_opts = call_args[e_index + 1]
+            assert "ControlMaster" not in ssh_opts
+            assert ssh_opts == "ssh -o LogLevel=ERROR"
 
 
 class TestRemoteDir:
