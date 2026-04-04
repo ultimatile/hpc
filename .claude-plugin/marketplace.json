@@ -1,0 +1,21 @@
+{
+  "name": "hpc",
+  "owner": {
+    "name": "ultimatile"
+  },
+  "metadata": {
+    "description": "HPC cluster workflow automation - sync files to remote cluster, submit scheduler jobs (Slurm/PJM), and monitor job status",
+    "version": "0.4.0"
+  },
+  "plugins": [
+    {
+      "name": "hpc",
+      "description": "HPC cluster workflow automation - sync, submit, and monitor jobs on remote clusters",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./.claude/skills/hpc"
+      ]
+    }
+  ]
+}
