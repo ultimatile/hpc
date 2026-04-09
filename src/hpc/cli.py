@@ -12,7 +12,7 @@ from .main import app
 from .config import ConfigManager, HpcConfig, find_config
 from .ssh import SSHManager
 from .sync import SyncManager
-from .job import JobManager
+from .job import JobManager, JobStatus
 from .run import RunManager
 
 # Type alias for config option
@@ -281,6 +281,8 @@ def submit(
         run.status = status.value.lower()
         run_manager.save_run_meta(run)
         print(f"Job finished: {status.value}")
+        if status != JobStatus.COMPLETED:
+            raise typer.Exit(1)
 
 
 @app.command()
@@ -401,3 +403,5 @@ def wait(id: str, config: ConfigOption = None):
     run.status = status.value.lower()
     run_manager.save_run_meta(run)
     print(f"Job finished: {status.value}")
+    if status != JobStatus.COMPLETED:
+        raise typer.Exit(1)
