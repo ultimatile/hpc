@@ -183,7 +183,7 @@ class JobManager:
         job_id: str,
         interval: float = 60,
         adaptive: bool = False,
-        max_interval: float = 86400,
+        max_interval: float = 300,
         growth_factor: float = 2.0,
     ) -> JobStatus:
         """Wait for job to complete, polling at interval
@@ -192,7 +192,7 @@ class JobManager:
             job_id: Job ID
             interval: Initial polling interval in seconds
             adaptive: If True, increase interval geometrically
-            max_interval: Maximum polling interval (default 1 hour)
+            max_interval: Maximum polling interval (default 5 minutes)
             growth_factor: Multiplier for adaptive interval (default 2x)
         """
         import time
